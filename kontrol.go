@@ -25,12 +25,12 @@ var DefaultKontrolOption = KontrolOption{
 
 //DefaultKontrol simple Kontrol
 type DefaultKontrol struct {
-	store  kontrolstore
+	store  KontrolStore
 	Option KontrolOption
 }
 
 //NewBasicKontrol simple Kontrol with default option, stores still have to be provided
-func NewBasicKontrol(store kontrolstore) kontrol {
+func NewBasicKontrol(store KontrolStore) Kontrol {
 	return &DefaultKontrol{store: store, Option: DefaultKontrolOption}
 }
 
