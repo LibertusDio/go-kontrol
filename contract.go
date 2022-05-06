@@ -1,21 +1,14 @@
 package gokontrol
 
+import "context"
+
 type kontrol interface{}
 
 type kontrolstore interface {
-	GetObjectByToken(token string, serviceid string, timestamp int64) (*Object, error)
-	CreateObjectWithPermission(objperm ObjectPermission) error
-	CreateObject(obj *Object) error
-	CreateObjectWithPolicy(obj *Object) error
-	UpdateObject(obj *Object) error
-	GetObjectByID(id string) (*Object, error)
-	GetObjectPermissionByObject(obj *Object) (*ObjectPermission, error)
-	UpdateObjectPermission(perm *ObjectPermission) error
-	GetPolicyByID(id string) (*Policy, error)
-	GetServiceByID(id string) (*Service, error)
-	GetListServiceByID(ids []string) ([]Service, error)
-	GetListPolicyByID(ids []string) ([]Policy, error)
-	SetService()
-	GetObjectPermission()
-	SetObjectPermission()
+	GetObjectByToken(c context.Context, token string, serviceid string, timestamp int64) (*Object, error)
+	CreateObject(c context.Context, obj *Object) error
+	UpdateObject(c context.Context, obj *Object) error
+	GetObjectByID(c context.Context, id string) (*Object, error)
+	GetPolicyByID(c context.Context, id string) (*Policy, error)
+	GetServiceByID(c context.Context, id string) (*Service, error)
 }

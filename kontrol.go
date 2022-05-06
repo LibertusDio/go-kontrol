@@ -1,6 +1,7 @@
 package gokontrol
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -34,8 +35,8 @@ func NewBasicKontrol(store kontrolstore) kontrol {
 }
 
 //ValidateToken validate the given token
-func (k DefaultKontrol) ValidateToken(token string, serviceid string) (*Object, error) {
-	object, err := k.store.GetObjectByToken(token, serviceid, time.Now().Unix())
+func (k DefaultKontrol) ValidateToken(c context.Context, token string, serviceid string) (*Object, error) {
+	object, err := k.store.GetObjectByToken(c, token, serviceid, time.Now().Unix())
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -47,9 +48,9 @@ func (k DefaultKontrol) ValidateToken(token string, serviceid string) (*Object, 
 }
 
 //IssueCertForService issue cert for current time
-func (k DefaultKontrol) IssueCertForService(objID string, serID string) (*ObjectPermission, error) {
+func (k DefaultKontrol) IssueCertForService(ctx context.Context, objID string, serID string) (*ObjectPermission, error) {
 	// check object
-	obj, err := k.store.GetObjectByID(objID)
+	obj, err := k.store.GetObjectByID(ctx, objID)
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func (k DefaultKontrol) IssueCertForService(objID string, serID string) (*Object
 	if strings.Compare(serID, obj.ServiceID) != 0 {
 		return nil, CommonError.INVALID_SERVICE
 	}
-	service, err := k.store.GetServiceByID(serID)
+	service, err := k.store.GetServiceByID(ctx, serID)
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -74,7 +75,10 @@ func (k DefaultKontrol) IssueCertForService(objID string, serID string) (*Object
 		return nil, err
 	}
 	obj.Token = sign
-	err = k.store.CreateObject(obj)
+	err = k.store.CreateObject(ctx, obj)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ObjectPermission{
 		Object:     *obj,
@@ -83,9 +87,9 @@ func (k DefaultKontrol) IssueCertForService(objID string, serID string) (*Object
 }
 
 //AddSimpleObjectWithDefaultPolicy add object with default service schema
-func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(externalid string, serviceid string) (*ObjectPermission, error) {
+func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, externalid string, serviceid string) (*ObjectPermission, error) {
 	// check service/policy
-	service, err := k.store.GetServiceByID(serviceid)
+	service, err := k.store.GetServiceByID(ctx, serviceid)
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -109,7 +113,10 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(externalid string, serv
 		return nil, err
 	}
 	obj.Token = sign
-	err = k.store.CreateObject(obj)
+	err = k.store.CreateObject(ctx, obj)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ObjectPermission{
 		Object:     *obj,
@@ -118,8 +125,8 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(externalid string, serv
 }
 
 //UpdateObject update Object info
-func (k DefaultKontrol) UpdateObject(obj *Object) error {
-	old, err := k.store.GetObjectByID(obj.ID)
+func (k DefaultKontrol) UpdateObject(ctx context.Context, obj *Object) error {
+	old, err := k.store.GetObjectByID(ctx, obj.ID)
 	if err != nil && err != CommonError.NOT_FOUND {
 		return err
 	}
@@ -127,7 +134,7 @@ func (k DefaultKontrol) UpdateObject(obj *Object) error {
 		return CommonError.OBJECT_NOT_FOUND
 	}
 
-	return k.store.UpdateObject(obj)
+	return k.store.UpdateObject(ctx, obj)
 }
 
 //CreateCert create final cert then sign
@@ -205,7 +212,8 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []Policy, enforce []Polic
 	if err != nil {
 		return nil, "", err
 	}
-	hash := sha256.Sum256(certstr)
+	scert := append([]byte(k.Option.SecretKey), certstr...)
+	hash := sha256.Sum256(scert)
 	sign := base64.URLEncoding.EncodeToString(hash[:])
 	return tempcert, sign, nil
 }
