@@ -7,7 +7,7 @@ type Kontrol interface {
 	IssueCertForService(ctx context.Context, objID string, serID string) (*ObjectPermission, error)
 	AddSimpleObjectWithDefaultPolicy(ctx context.Context, externalid string, serviceid string) (*ObjectPermission, error)
 	UpdateObject(ctx context.Context, obj *Object) error
-	CreateCert(obj *Object, policy []Policy, enforce []Policy) (*CertForSign, string, error)
+	CreateCert(obj *Object, policy []*Policy, enforce []*Policy) (*CertForSign, string, error)
 }
 
 type KontrolStore interface {

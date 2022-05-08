@@ -70,4 +70,27 @@ func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) 
 func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) error
 func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol.Object, error)
 func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol.Policy, error)
-func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error)
+func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var service gokontrol.Service
+	err := tx.WithContext(c).Table(DBTableName.TB_SERVICES).Where("id = ? ", id).First(&service).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, gokontrol.CommonError.NOT_FOUND
+	}
+	var defaultpolicy []*gokontrol.Policy
+	err = tx.WithContext(c).Table(DBTableName.TB_SERVICE_POLICY_MESH).Where("service_id = ? AND `type` = ? ", id, ServicePolicyType.DEFAULT).Scan(&defaultpolicy).Error
+	if err != nil {
+		return nil, err
+	}
+	service.DefaultPolicy = defaultpolicy
+	var enforcepolicy []*gokontrol.Policy
+	err = tx.WithContext(c).Table(DBTableName.TB_SERVICE_POLICY_MESH).Where("service_id = ? AND `type` = ? ", id, ServicePolicyType.ENFORCE).Scan(&enforcepolicy).Error
+	if err != nil {
+		return nil, err
+	}
+	service.EnforcePolicy = enforcepolicy
+	return &service, nil
+}
