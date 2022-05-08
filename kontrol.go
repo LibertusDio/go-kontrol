@@ -138,7 +138,7 @@ func (k DefaultKontrol) UpdateObject(ctx context.Context, obj *Object) error {
 }
 
 //CreateCert create final cert then sign
-func (k DefaultKontrol) CreateCert(obj *Object, policy []Policy, enforce []Policy) (*CertForSign, string, error) {
+func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Policy) (*CertForSign, string, error) {
 	tempcert := &CertForSign{
 		ID:         obj.ID,
 		GlobalID:   obj.GlobalID,

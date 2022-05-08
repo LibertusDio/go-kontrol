@@ -17,13 +17,12 @@ type Object struct {
 type Service struct {
 	ID            string
 	ServiceID     string
-	ExternalID    string
 	Name          string
 	Key           string
 	Status        string
 	ExpiryDate    int64
-	DefaultPolicy []Policy
-	EnforcePolicy []Policy
+	DefaultPolicy []*Policy
+	EnforcePolicy []*Policy
 }
 
 //ObjectPermission Contains object and it's permission

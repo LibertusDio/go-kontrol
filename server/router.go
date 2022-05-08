@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	gokontrol "github.com/LibertusDio/go-kontrol"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/neko-neko/echo-logrus/v2/log"
@@ -41,18 +42,19 @@ func NewEcho(s *Service) *echo.Echo {
 		return c.String(http.StatusOK, strconv.FormatInt(time.Now().Unix(), 10))
 	})
 
-	// admin := e.Group("/admin")
-	// {
-	// 	// admin
-	// 	admin.GET("/check-permission", adminobjectpermission.GetCheckPermission(s))
-	// 	admin.GET("/check-create", adminobjectpermission.GetCheckCreate(s))
-	// 	admin.GET("/check-rights", adminobjectpermission.GetCheckRight(s))
-	// 	admin.POST("/create", adminobjectpermission.PostCreateObject(s))
-	// 	admin.POST("/chmod", adminobjectpermission.PostChmod(s))
-	// 	admin.POST("/chown", adminobjectpermission.PostChown(s))
-	// 	admin.POST("/check-access", adminaccesscontrol.PostCheckAccess(s))
-	// 	admin.GET("/permission-list", adminobjectpermission.GetPermissionList(s))
-	// }
+	api := e.Group("/api")
+	{
+		// api
+		api.POST("/object", CreateSimpleObjectHandler(s))
+
+		// 	admin.GET("/check-permission", adminobjectpermission.GetCheckPermission(s))
+		// 	admin.GET("/check-create", adminobjectpermission.GetCheckCreate(s))
+		// 	admin.GET("/check-rights", adminobjectpermission.GetCheckRight(s))
+		// 	admin.POST("/chmod", adminobjectpermission.PostChmod(s))
+		// 	admin.POST("/chown", adminobjectpermission.PostChown(s))
+		// 	admin.POST("/check-access", adminaccesscontrol.PostCheckAccess(s))
+		// 	admin.GET("/permission-list", adminobjectpermission.GetPermissionList(s))
+	}
 
 	return e
 }
@@ -88,5 +90,35 @@ func GormTransactionHandler(db Database) echo.MiddlewareFunc {
 
 			return nil
 		})
+	}
+}
+
+func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+
+		type PermissionRequest struct {
+			ObjectID  string `query:"object_id" validate:"required"`
+			Token     string `query:"token" validate:"required"`
+			ServiceID string `query:"service_id" validate:"required"`
+		}
+
+		type PermissionResponse struct {
+			Code    int                        `json:"code"`
+			Message string                     `json:"message"`
+			Data    gokontrol.ObjectPermission `json:"object_permission"`
+		}
+
+		pr := new(PermissionRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return echo.NewHTTPError(http.StatusUnprocessableEntity, err)
+		}
+
+		objcert, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID)
+		if err != nil {
+			return c.JSON(http.StatusOK, PermissionResponse{Code: http.StatusUnauthorized, Message: err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, PermissionResponse{Code: http.StatusOK, Message: "true", Data: *objcert})
 	}
 }
