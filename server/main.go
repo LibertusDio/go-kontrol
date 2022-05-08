@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	gokontrol "github.com/LibertusDio/go-kontrol"
 	echoLog "github.com/labstack/gommon/log"
 	"github.com/neko-neko/echo-logrus/v2/log"
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ type Service struct {
 	Logger  *log.MyLogger
 	DB      Database
 	Storage Storage
+	Kontrol gokontrol.Kontrol
 }
 
 func main() {
@@ -47,11 +49,18 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	// storage
+	storage := NewGormStorage()
+
+	// kontrol
+	kontrol := gokontrol.NewBasicKontrol(NewKontrolStorage())
+
 	ser := &Service{
 		Logger:  logger,
 		Config:  cfg,
 		DB:      gormdb,
-		Storage: NewGormStorage,
+		Storage: storage,
+		Kontrol: kontrol,
 	}
 
 	e := NewEcho(ser)

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"time"
 
+	gokontrol "github.com/LibertusDio/go-kontrol"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -57,3 +59,15 @@ type gormStorage struct {
 func NewGormStorage() Storage {
 	return &gormStorage{}
 }
+
+type kontrolStorage struct{}
+
+func NewKontrolStorage() gokontrol.KontrolStore {
+	return &kontrolStorage{}
+}
+func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, serviceid string, timestamp int64) (*gokontrol.Object, error)
+func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) error
+func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) error
+func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol.Object, error)
+func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol.Policy, error)
+func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error)
