@@ -97,6 +97,14 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, ex
 		return nil, CommonError.INVALID_SERVICE
 	}
 
+	testobj, err := k.store.GetObjectByExternalID(ctx, externalid, serviceid)
+	if err != nil && err != CommonError.NOT_FOUND {
+		return nil, err
+	}
+	if testobj != nil || err != CommonError.NOT_FOUND {
+		return nil, CommonError.INVALID_OBJECT
+	}
+
 	obj := &Object{
 		ID:          uuid.New().String(),
 		ExternalID:  externalid,

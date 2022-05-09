@@ -15,6 +15,7 @@ type KontrolStore interface {
 	CreateObject(c context.Context, obj *Object) error
 	UpdateObject(c context.Context, obj *Object) error
 	GetObjectByID(c context.Context, id string) (*Object, error)
+	GetObjectByExternalID(c context.Context, extid string, serviceid string) (*Object, error)
 	GetPolicyByID(c context.Context, id string) (*Policy, error)
 	GetServiceByID(c context.Context, id string) (*Service, error)
 }
