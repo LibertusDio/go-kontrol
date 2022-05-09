@@ -7,6 +7,7 @@ type commonerror struct {
 	INVALID_TOKEN        error
 	INVALID_SERVICE      error
 	INVALID_POLICY       error
+	INVALID_OBJECT       error
 	OBJECT_NOT_FOUND     error
 	PERMISSION_NOT_FOUND error
 	POLICY_NOT_FOUND     error
@@ -23,6 +24,7 @@ var CommonError = commonerror{
 	INVALID_TOKEN:        errors.New("invalid or expired token"),
 	INVALID_SERVICE:      errors.New("invalid service"),
 	INVALID_POLICY:       errors.New("invalid policy"),
+	INVALID_OBJECT:       errors.New("invalid object"),
 	MALFORM_PERMISSION:   errors.New("policy permission malform"),
 }
 

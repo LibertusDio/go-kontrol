@@ -7,10 +7,10 @@ type Object struct {
 	ExternalID  string
 	ServiceID   string
 	Status      string
-	Attributes  map[string]interface{}
+	Attributes  map[string]interface{} // ignore for now, extension
 	Token       string
 	ExpiryDate  int64
-	ApplyPolicy []Policy
+	ApplyPolicy []*Policy
 }
 
 //Service is a registered serviced
