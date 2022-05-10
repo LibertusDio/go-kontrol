@@ -55,6 +55,7 @@ func (db *gormSession) Transaction() (interface{}, error) {
 	return db.session.Begin(), nil
 }
 
+//system storage layer
 type gormStorage struct {
 }
 
@@ -62,6 +63,7 @@ func NewGormStorage() Storage {
 	return &gormStorage{}
 }
 
+//kontrol support storage
 type kontrolStorage struct{}
 
 func NewKontrolStorage() gokontrol.KontrolStore {
@@ -110,7 +112,42 @@ type policystore struct {
 	ApplyTo    int64
 }
 
-func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, serviceid string, timestamp int64) (*gokontrol.Object, error)
+func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, serviceid string, timestamp int64) (*gokontrol.Object, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var objectstore objectStore
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("token = ? AND service_id = ? AND expiry_date >= ?", token, serviceid, timestamp).First(&objectstore).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, gokontrol.CommonError.NOT_FOUND
+	}
+
+	var mesh []*objectpolicymesh
+	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Where("object_id = ? ", objectstore.ID).Scan(&mesh).Error
+	if err != nil {
+		return nil, err
+	}
+	defaultpolicy := make([]*gokontrol.Policy, 0)
+	for _, m := range mesh {
+		policy, err := k.GetPolicyByID(c, m.PolicyID)
+		if err != nil {
+			return nil, err
+		}
+		defaultpolicy = append(defaultpolicy, policy)
+	}
+	return &gokontrol.Object{
+		ID:          objectstore.ID,
+		GlobalID:    objectstore.GlobalID,
+		ExternalID:  objectstore.ExternalID,
+		ServiceID:   objectstore.ServiceID,
+		Status:      objectstore.Status,
+		Attributes:  nil,
+		Token:       objectstore.Token,
+		ExpiryDate:  objectstore.ExpiryDate,
+		ApplyPolicy: defaultpolicy,
+	}, nil
+}
 func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) error {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	object := objectStore{
@@ -142,8 +179,79 @@ func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) 
 	return nil
 }
 func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) error
-func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol.Object, error)
-func (k *kontrolStorage) GetObjectByExternalID(c context.Context, extid string, serviceid string) (*gokontrol.Object, error)
+func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol.Object, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var objectstore objectStore
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("id = ? ", id).First(&objectstore).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, gokontrol.CommonError.NOT_FOUND
+	}
+
+	var mesh []*objectpolicymesh
+	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Where("object_id = ? ", id).Scan(&mesh).Error
+	if err != nil {
+		return nil, err
+	}
+	defaultpolicy := make([]*gokontrol.Policy, 0)
+	for _, m := range mesh {
+		policy, err := k.GetPolicyByID(c, m.PolicyID)
+		if err != nil {
+			return nil, err
+		}
+		defaultpolicy = append(defaultpolicy, policy)
+	}
+	return &gokontrol.Object{
+		ID:          objectstore.ID,
+		GlobalID:    objectstore.GlobalID,
+		ExternalID:  objectstore.ExternalID,
+		ServiceID:   objectstore.ServiceID,
+		Status:      objectstore.Status,
+		Attributes:  nil,
+		Token:       objectstore.Token,
+		ExpiryDate:  objectstore.ExpiryDate,
+		ApplyPolicy: defaultpolicy,
+	}, nil
+}
+
+func (k *kontrolStorage) GetObjectByExternalID(c context.Context, extid string, serviceid string) (*gokontrol.Object, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var objectstore objectStore
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("external_id = ? AND service_id = ? ", extid, serviceid).First(&objectstore).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, gokontrol.CommonError.NOT_FOUND
+	}
+
+	var mesh []*objectpolicymesh
+	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Where("object_id = ? ", objectstore.ID).Scan(&mesh).Error
+	if err != nil {
+		return nil, err
+	}
+	defaultpolicy := make([]*gokontrol.Policy, 0)
+	for _, m := range mesh {
+		policy, err := k.GetPolicyByID(c, m.PolicyID)
+		if err != nil {
+			return nil, err
+		}
+		defaultpolicy = append(defaultpolicy, policy)
+	}
+	return &gokontrol.Object{
+		ID:          objectstore.ID,
+		GlobalID:    objectstore.GlobalID,
+		ExternalID:  objectstore.ExternalID,
+		ServiceID:   objectstore.ServiceID,
+		Status:      objectstore.Status,
+		Attributes:  nil,
+		Token:       objectstore.Token,
+		ExpiryDate:  objectstore.ExpiryDate,
+		ApplyPolicy: defaultpolicy,
+	}, nil
+}
 func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol.Policy, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var policystore policystore
@@ -170,7 +278,6 @@ func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol
 		ApplyFrom:  policystore.ApplyFrom,
 		ApplyTo:    policystore.ApplyTo,
 	}, nil
-
 }
 func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
