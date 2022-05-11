@@ -93,13 +93,13 @@ port: "80"
 token_ttl: 1800
 log_level: 1
 mysql: 
- database: auth_db
- host: 192.168.70.131
+ database: kontrol
+ host: 127.0.0.1
  password: mysql
- port: 5432
+ port: 3306
  sslmode: disable
  timeout: 15
- username: mysql
+ username: root
  connection_max: 20
  connection_time: 300
  connection_idle_max: 0

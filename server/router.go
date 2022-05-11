@@ -3,9 +3,11 @@ package main
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	gokontrol "github.com/LibertusDio/go-kontrol"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/neko-neko/echo-logrus/v2/log"
@@ -13,10 +15,26 @@ import (
 	"gorm.io/gorm"
 )
 
+func urlSkipper(c echo.Context) bool {
+	if strings.HasPrefix(c.Path(), "/health") {
+		return true
+	}
+	if strings.HasPrefix(c.Path(), "/metrics") {
+		return true
+	}
+	if strings.HasPrefix(c.Path(), "/check-time") {
+		return true
+	}
+
+	return false
+}
+
 func NewEcho(s *Service) *echo.Echo {
 	// Echo instance
 	e := echo.New()
 	e.Logger = s.Logger
+	p := prometheus.NewPrometheus("echo", urlSkipper)
+	p.Use(e)
 
 	// Validator
 	e.Validator = &CustomValidator{validator: validator.New()}
@@ -24,7 +42,7 @@ func NewEcho(s *Service) *echo.Echo {
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.Gzip())
+	// e.Use(middleware.Gzip())
 	// Fetch new store.
 	e.Use(GormTransactionHandler(s.DB))
 

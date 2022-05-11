@@ -148,6 +148,7 @@ func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, servi
 		ApplyPolicy: defaultpolicy,
 	}, nil
 }
+
 func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) error {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	object := objectStore{
@@ -178,7 +179,44 @@ func (k *kontrolStorage) CreateObject(c context.Context, obj *gokontrol.Object) 
 	}
 	return nil
 }
-func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) error
+
+func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) error {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	object := objectStore{
+		ID:         obj.ID,
+		GlobalID:   obj.GlobalID,
+		ExternalID: obj.ExternalID,
+		ServiceID:  obj.ServiceID,
+		Status:     obj.Status,
+		Token:      obj.Token,
+		ExpiryDate: obj.ExpiryDate,
+	}
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Create(&object).Error
+	if err != nil {
+		return err
+	}
+
+	// clean old policy
+	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Delete(&objectpolicymesh{}, "object_id = ? ", obj.ID).Error
+	if err != nil {
+		return err
+	}
+
+	// assuming policies are validated
+	for _, p := range obj.ApplyPolicy {
+		opm := objectpolicymesh{
+			ID:       uuid.NewString(),
+			ObjectID: obj.ID,
+			PolicyID: p.ID,
+		}
+		err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Create(&opm).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol.Object, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var objectstore objectStore
@@ -252,6 +290,7 @@ func (k *kontrolStorage) GetObjectByExternalID(c context.Context, extid string, 
 		ApplyPolicy: defaultpolicy,
 	}, nil
 }
+
 func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol.Policy, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var policystore policystore
@@ -279,6 +318,7 @@ func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol
 		ApplyTo:    policystore.ApplyTo,
 	}, nil
 }
+
 func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var servicestore serviceStore
