@@ -319,6 +319,32 @@ func (k *kontrolStorage) GetPolicyByID(c context.Context, id string) (*gokontrol
 	}, nil
 }
 
+func (k *kontrolStorage) CreatePolicy(c context.Context, policy *gokontrol.Policy) error {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	// convert perm
+	perm, err := json.Marshal(policy.Permission)
+	if err != nil {
+		return err
+	}
+
+	// save DB
+	policystore := policystore{
+		ID:         policy.ID,
+		Name:       policy.Name,
+		ServiceID:  policy.ServiceID,
+		Permission: string(perm),
+		Status:     policy.Status,
+		ApplyFrom:  policy.ApplyFrom,
+		ApplyTo:    policy.ApplyTo,
+	}
+	err = tx.WithContext(c).Table(DBTableName.TB_POLICIES).Create(&policystore).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var servicestore serviceStore

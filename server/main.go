@@ -14,11 +14,12 @@ import (
 )
 
 type Service struct {
-	Config  *Config
-	Logger  *log.MyLogger
-	DB      Database
-	Storage Storage
-	Kontrol gokontrol.Kontrol
+	Config         *Config
+	Logger         *log.MyLogger
+	DB             Database
+	Storage        Storage
+	Kontrol        gokontrol.Kontrol
+	StorageKontrol gokontrol.KontrolStore
 }
 
 func main() {
@@ -53,14 +54,16 @@ func main() {
 	storage := NewGormStorage()
 
 	// kontrol
-	kontrol := gokontrol.NewBasicKontrol(NewKontrolStorage())
+	storagekontrol := NewKontrolStorage()
+	kontrol := gokontrol.NewBasicKontrol(storagekontrol)
 
 	ser := &Service{
-		Logger:  logger,
-		Config:  cfg,
-		DB:      gormdb,
-		Storage: storage,
-		Kontrol: kontrol,
+		Logger:         logger,
+		Config:         cfg,
+		DB:             gormdb,
+		Storage:        storage,
+		Kontrol:        kontrol,
+		StorageKontrol: storagekontrol,
 	}
 
 	e := NewEcho(ser)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gokontrol "github.com/LibertusDio/go-kontrol"
+	"github.com/google/uuid"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -64,16 +65,17 @@ func NewEcho(s *Service) *echo.Echo {
 	{
 		// api
 		api.POST("/object", CreateSimpleObjectHandler(s))
-
-		// 	admin.GET("/check-permission", adminobjectpermission.GetCheckPermission(s))
-		// 	admin.GET("/check-create", adminobjectpermission.GetCheckCreate(s))
-		// 	admin.GET("/check-rights", adminobjectpermission.GetCheckRight(s))
-		// 	admin.POST("/chmod", adminobjectpermission.PostChmod(s))
-		// 	admin.POST("/chown", adminobjectpermission.PostChown(s))
-		// 	admin.POST("/check-access", adminaccesscontrol.PostCheckAccess(s))
-		// 	admin.GET("/permission-list", adminobjectpermission.GetPermissionList(s))
+		api.PUT("/object", UpdateObjectHandler(s))
+		api.GET("/object", GetCertForServiceHandler(s))
+		api.GET("/validate", ValidateObjectHandler(s))
+		api.GET("/cert", GetCertForClientHandler(s))
+		api.POST("/policy", CreatePolicyHandler(s))
 	}
 
+	// admin	 := e.Group("/admin")
+	// {
+	// 	admin.
+	// }
 	return e
 }
 
@@ -113,30 +115,204 @@ func GormTransactionHandler(db Database) echo.MiddlewareFunc {
 
 func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
-
-		type PermissionRequest struct {
-			ObjectID  string `query:"object_id" validate:"required"`
-			Token     string `query:"token" validate:"required"`
-			ServiceID string `query:"service_id" validate:"required"`
+		type CreateSimpleObjectRequest struct {
+			ObjectID  string `json:"object_id" validate:"required"`
+			Token     string `json:"token" validate:"required"`
+			ServiceID string `json:"service_id" validate:"required"`
 		}
 
-		type PermissionResponse struct {
+		type CreateSimpleObjectResponse struct {
 			Code    int                        `json:"code"`
 			Message string                     `json:"message"`
 			Data    gokontrol.ObjectPermission `json:"object_permission"`
 		}
 
-		pr := new(PermissionRequest)
+		pr := new(CreateSimpleObjectRequest)
 		c.Bind(pr)
 		if err := c.Validate(pr); err != nil {
-			return echo.NewHTTPError(http.StatusUnprocessableEntity, err)
+			return c.JSON(http.StatusBadRequest, err)
 		}
 
-		objcert, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID)
+		objcert, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID, pr.Token)
 		if err != nil {
-			return c.JSON(http.StatusOK, PermissionResponse{Code: http.StatusUnauthorized, Message: err.Error()})
+			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 
-		return c.JSON(http.StatusOK, PermissionResponse{Code: http.StatusOK, Message: "true", Data: *objcert})
+		return c.JSON(http.StatusOK, CreateSimpleObjectResponse{Code: http.StatusOK, Message: "true", Data: *objcert})
+	}
+}
+
+func UpdateObjectHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type UpdateObjectRequest struct {
+			ObjectID    string   `json:"object_id" validate:"required"`
+			Token       string   `json:"token" validate:"required"`
+			GlobalID    string   `json:"global_id"`
+			ServiceID   string   `json:"service_id" validate:"required"`
+			ExternalID  string   `json:"external_id" validate:"required"`
+			Status      string   `json:"status" validate:"required"`
+			ApplyPolicy []string `json:"apply_policy"`
+		}
+
+		type UpdateObjectResponse struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+
+		pr := new(UpdateObjectRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		ap := make([]*gokontrol.Policy, 0)
+		for _, pid := range pr.ApplyPolicy {
+			p, err := s.StorageKontrol.GetPolicyByID(c.Request().Context(), pid)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, err)
+			}
+			ap = append(ap, p)
+		}
+
+		err := s.Kontrol.UpdateObject(c.Request().Context(), &gokontrol.Object{
+			ID:          pr.ObjectID,
+			GlobalID:    pr.GlobalID,
+			ExternalID:  pr.ExternalID,
+			ServiceID:   pr.ServiceID,
+			Status:      pr.Status,
+			ApplyPolicy: ap,
+		}, pr.Token)
+		if err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, err)
+		}
+
+		return c.JSON(http.StatusOK, UpdateObjectResponse{Code: http.StatusOK, Message: "ok"})
+	}
+}
+
+func CreatePolicyHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type CreatePolicyRequest struct {
+			Token      string         `json:"token" validate:"required"`
+			Name       string         `json:"name"`
+			ServiceID  string         `json:"service_id"`
+			Permission map[string]int `json:"permission"`
+			Status     string         `json:"status"`
+			ApplyFrom  int64          `json:"apply_from"`
+			ApplyTo    int64          `json:"apply_to"`
+		}
+
+		type CreatePolicyResponse struct {
+			Code    int               `json:"code"`
+			Message string            `json:"message"`
+			Policy  *gokontrol.Policy `json:"policy"`
+		}
+
+		pr := new(CreatePolicyRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		for _, v := range pr.Permission {
+			if v < 0 || v > 2 {
+				return c.JSON(http.StatusBadRequest, CommonError.INVALID_PARAM)
+			}
+		}
+		policy := &gokontrol.Policy{
+			ID:         uuid.NewString(),
+			Name:       pr.Name,
+			ServiceID:  pr.ServiceID,
+			Permission: pr.Permission,
+			Status:     pr.Status,
+			ApplyFrom:  pr.ApplyFrom,
+			ApplyTo:    pr.ApplyTo,
+		}
+		err := s.Kontrol.CreatePolicy(c.Request().Context(), pr.Token, policy)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, err)
+		}
+
+		return c.JSON(http.StatusOK, CreatePolicyResponse{Code: http.StatusOK, Message: "ok", Policy: policy})
+	}
+}
+
+//ValidateObjectHandler quick check if token is valid
+func ValidateObjectHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type ValidateObjectRequest struct {
+			Token     string `query:"token" validate:"required"`
+			ServiceID string `query:"service_id" validate:"required"`
+		}
+
+		type ValidateObjectResponse struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+
+		pr := new(ValidateObjectRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		_, err := s.Kontrol.ValidateToken(c.Request().Context(), pr.Token, pr.ServiceID)
+		if err != nil {
+			return c.JSON(http.StatusForbidden, CommonError.FORBIDDEN)
+		}
+		return c.JSON(http.StatusOK, ValidateObjectResponse{Code: http.StatusOK, Message: "ok"})
+	}
+}
+
+//GetCertForClientHandler return object permission after successful authen
+func GetCertForClientHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type GetCertForClientRequest struct {
+			ObjectID  string `query:"object_id" validate:"required"`
+			ServiceID string `query:"service_id" validate:"required"`
+		}
+
+		type GetCertForClientResponse struct {
+			Code             int                         `json:"code"`
+			Message          string                      `json:"message"`
+			ObjectPermission *gokontrol.ObjectPermission `json:"object_permission"`
+		}
+
+		pr := new(GetCertForClientRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		cert, err := s.Kontrol.IssueCertForClient(c.Request().Context(), pr.ObjectID, pr.ServiceID)
+		if err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, err)
+		}
+		return c.JSON(http.StatusOK, GetCertForClientResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
+	}
+}
+
+//GetCertForServiceHandler return object permission for service to cache
+func GetCertForServiceHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type GetCertForClientRequest struct {
+			ObjectID  string `query:"object_id" validate:"required"`
+			ServiceID string `query:"service_id" validate:"required"`
+		}
+
+		type GetCertForClientResponse struct {
+			Code             int                         `json:"code"`
+			Message          string                      `json:"message"`
+			ObjectPermission *gokontrol.ObjectPermission `json:"object_permission"`
+		}
+
+		pr := new(GetCertForClientRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		cert, err := s.Kontrol.IssueCertForService(c.Request().Context(), pr.ObjectID, pr.ServiceID)
+		if err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, err)
+		}
+		return c.JSON(http.StatusOK, GetCertForClientResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
 	}
 }
