@@ -33,8 +33,18 @@ type objectstatus struct {
 	ENABLE  string
 	DISABLE string
 }
+type servicestatus struct {
+	INIT    string
+	ENABLE  string
+	DISABLE string
+}
 
 var ObjectStatus = objectstatus{
+	INIT:    "",
+	ENABLE:  "enable",
+	DISABLE: "disable",
+}
+var ServiceStatus = objectstatus{
 	INIT:    "",
 	ENABLE:  "enable",
 	DISABLE: "disable",

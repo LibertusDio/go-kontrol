@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -36,6 +37,12 @@ func main() {
 	err := viper.ReadConfig(bytes.NewBuffer([]byte(ConfigDefault)))
 	if err != nil {
 		logger.Fatal(err)
+	}
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.AddConfigPath(".")      // optionally look for config in the working directory
+	err = viper.ReadInConfig()    // Find and read the config file
+	if err != nil {               // Handle errors reading the config file
+		logger.Warn(fmt.Sprintf("Fail to read file, use default configure, error detail %v /n", err))
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
