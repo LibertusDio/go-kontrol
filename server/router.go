@@ -1,6 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -68,8 +73,9 @@ func NewEcho(s *Service) *echo.Echo {
 		api.PUT("/object", UpdateObjectHandler(s))
 		api.GET("/object", GetCertForServiceHandler(s))
 		api.GET("/validate", ValidateObjectHandler(s))
-		api.GET("/cert", GetCertForClientHandler(s))
+		api.POST("/cert", GetCertForClientHandler(s))
 		api.POST("/policy", CreatePolicyHandler(s))
+		api.POST(" /auth", AuthenticateHandler(s))
 	}
 
 	// admin	 := e.Group("/admin")
@@ -267,8 +273,8 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 func GetCertForClientHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		type GetCertForClientRequest struct {
-			ObjectID  string `query:"object_id" validate:"required"`
-			ServiceID string `query:"service_id" validate:"required"`
+			ObjectID  string `json:"object_id" validate:"required"`
+			ServiceID string `json:"service_id" validate:"required"`
 		}
 
 		type GetCertForClientResponse struct {
@@ -314,5 +320,91 @@ func GetCertForServiceHandler(s *Service) echo.HandlerFunc {
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 		return c.JSON(http.StatusOK, GetCertForClientResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
+	}
+}
+
+//AuthenticateHandler Authenticate user --> call REST API cert to get request
+func AuthenticateHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type AuthenticateRequest struct {
+			ServiceID string `query:"service_id" validate:"required"`
+			UserName  string `query:"user_name" validate:"required"`
+			Password  string `query:"password" validate:"required"`
+		}
+
+		type AuthenticateResponse struct {
+			Code             int                         `json:"code"`
+			Message          string                      `json:"message"`
+			ObjectPermission *gokontrol.ObjectPermission `json:"object_permission"`
+		}
+		type User struct {
+			ExternalId string `json:"external_id"`
+			UserName   string `json:"user_name"`
+			Password   string `json:"password"`
+		}
+		// this is mock user for demo authenticate step in external service
+		users := map[string]User{
+			"user1": {ExternalId: "1", UserName: "user1", Password: "pass1"},
+			"user2": {ExternalId: "1", UserName: "user2", Password: "pass2"},
+			"user3": {ExternalId: "1", UserName: "user3", Password: "pass3"},
+		}
+		var existedUser User
+		pr := new(AuthenticateRequest)
+		c.Bind(pr)
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		// authenticate -- for demo :)
+		if existedUser, ok := users[pr.UserName]; ok == true {
+			if existedUser.Password != pr.Password {
+				return c.JSON(http.StatusForbidden, errors.New("Invalid username or password "))
+			}
+		} else {
+			return c.JSON(http.StatusForbidden, errors.New("User is not existed "))
+		}
+
+		cert, err := s.getServerCert(pr.ServiceID, existedUser.ExternalId)
+		if err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, err)
+		}
+		return c.JSON(http.StatusOK, AuthenticateResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
+	}
+}
+
+// getCert call API `cert` to token  and permissions
+func (s *Service) getServerCert(serviceId, externalId string) (*gokontrol.ObjectPermission, error) {
+	type GetCertForClientResponse struct {
+		Code             int                         `json:"code"`
+		Message          string                      `json:"message"`
+		ObjectPermission *gokontrol.ObjectPermission `json:"object_permission"`
+	}
+	type GetCertForClientRequest struct {
+		ObjectID  string `json:"object_id" validate:"required"`
+		ServiceID string `json:"service_id" validate:"required"`
+	}
+	data := GetCertForClientRequest{ObjectID: externalId, ServiceID: serviceId}
+	bodyData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	response, err := http.Post(fmt.Sprintf("http://localhost:%s/api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
+
+	if err != nil {
+		return nil, err
+	}
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	var apiResponse GetCertForClientResponse
+	err = json.Unmarshal(responseData, &apiResponse)
+	if err != nil {
+		return nil, err
+	}
+	if apiResponse.Code == http.StatusOK {
+		return apiResponse.ObjectPermission, nil
+	} else {
+		return nil, errors.New(apiResponse.Message)
 	}
 }
