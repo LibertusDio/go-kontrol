@@ -1,0 +1,50 @@
+## STATIC CONFIGURATION
+log:
+  level: INFO
+
+api:
+  insecure: true
+  dashboard: true
+  debug: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: true
+  file:
+    filename: "traefik.yml"
+
+## DYNAMIC CONFIGURATION
+http:
+  routers:
+    route-to-server:
+      rule: "Path(`/api`)"
+      service: route-to-api-service
+      middlewares:
+        - "test-auth"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-auth:
+      rule: "Path(`/login`)"
+      service: route-to-authorize-api
+      priority: 1000
+      entryPoints:
+        - web
+  middlewares:
+    test-auth:
+      forwardAuth:
+        address: "http://127.0.0.1:4445/validate"
+  services:
+    route-to-authorize-api:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:4445/api/authorize"
+    route-to-api-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:4445/health"

@@ -75,7 +75,7 @@ func NewEcho(s *Service) *echo.Echo {
 		api.GET("/validate", ValidateObjectHandler(s))
 		api.POST("/cert", GetCertForClientHandler(s))
 		api.POST("/policy", CreatePolicyHandler(s))
-		api.POST(" /auth", AuthenticateHandler(s))
+		api.POST("/authorize", AuthenticateHandler(s))
 	}
 
 	// admin	 := e.Group("/admin")
@@ -327,9 +327,9 @@ func GetCertForServiceHandler(s *Service) echo.HandlerFunc {
 func AuthenticateHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		type AuthenticateRequest struct {
-			ServiceID string `query:"service_id" validate:"required"`
-			UserName  string `query:"user_name" validate:"required"`
-			Password  string `query:"password" validate:"required"`
+			ServiceID string `json:"service_id" validate:"required"`
+			UserName  string `json:"user_name" validate:"required"`
+			Password  string `json:"password" validate:"required"`
 		}
 
 		type AuthenticateResponse struct {
