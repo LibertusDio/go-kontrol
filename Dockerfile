@@ -1,21 +1,14 @@
 FROM golang:1.18-alpine AS builder
-RUN apk add --no-cache make \
-&& rm -vrf /var/cache/apk/*
-
-
-
+RUN apk add --no-cache --update bash git
 WORKDIR /go/src/app
 COPY ./go.mod ./
 COPY ./go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o server ./server/
-
+RUN go build -o execute ./server/
 
 FROM alpine:3.14
-RUN apk add --no-cache --update ca-certificates tzdata
-
-
-COPY --from=builder /go/src/app/server /app/server
-WORKDIR /app
-CMD ["/app/server"]
+RUN apk add --no-cache --update ca-certificates tzdata curl
+COPY --from=builder /go/src/app/execute /execute
+WORKDIR /
+ENTRYPOINT ["/execute"]
