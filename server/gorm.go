@@ -191,7 +191,7 @@ func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) 
 		Token:      obj.Token,
 		ExpiryDate: obj.ExpiryDate,
 	}
-	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Create(&object).Error
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Updates(&object).Where("id = ?", obj.ID).Error
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (k *kontrolStorage) UpdateObject(c context.Context, obj *gokontrol.Object) 
 			ObjectID: obj.ID,
 			PolicyID: p.ID,
 		}
-		err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Create(&opm).Error
+		err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Save(&opm).Error
 		if err != nil {
 			return err
 		}
@@ -267,7 +267,7 @@ func (k *kontrolStorage) GetObjectByExternalID(c context.Context, extid string, 
 
 	var mesh []*objectpolicymesh
 	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Where("object_id = ? ", objectstore.ID).Scan(&mesh).Error
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 	defaultpolicy := make([]*gokontrol.Policy, 0)

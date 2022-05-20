@@ -8,7 +8,9 @@ COPY . .
 RUN go build -o execute ./server/
 
 FROM alpine:3.14
-RUN apk add --no-cache --update ca-certificates tzdata curl
+RUN apk add --no-cache --update ca-certificates tzdata curl && \
+rm -rf /var/cache/apk/
 COPY --from=builder /go/src/app/execute /execute
+COPY --from=builder /go/src/app/server/config.yaml /config.yaml
 WORKDIR /
 ENTRYPOINT ["/execute"]

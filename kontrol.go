@@ -84,9 +84,9 @@ func (k DefaultKontrol) IssueCertForService(ctx context.Context, objID string, s
 }
 
 //IssueCertForClient issue cert for current time, does not authen, must be authen-ed beforehand
-func (k DefaultKontrol) IssueCertForClient(ctx context.Context, objID string, serID string) (*ObjectPermission, error) {
+func (k DefaultKontrol) IssueCertForClient(ctx context.Context, externalID string, serID string) (*ObjectPermission, error) {
 	// check object
-	obj, err := k.store.GetObjectByID(ctx, objID)
+	obj, err := k.store.GetObjectByExternalID(ctx, externalID, serID)
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (k DefaultKontrol) IssueCertForClient(ctx context.Context, objID string, se
 		return nil, err
 	}
 	obj.Token = sign
-	err = k.store.CreateObject(ctx, obj)
+	err = k.store.UpdateObject(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,6 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 	}
 
 	tempperm := make(map[string]map[string]bool)
-
 	// apply default policies
 	for _, dp := range policy {
 		ts, exist := tempperm[dp.ServiceID]
@@ -303,6 +302,7 @@ func (k DefaultKontrol) CreatePolicy(ctx context.Context, servicekey string, pol
 	scert := append([]byte(k.Option.SecretKey), []byte(servicekey)...)
 	hash := sha256.Sum256(scert)
 	sign := base64.URLEncoding.EncodeToString(hash[:])
+
 	if strings.Compare(sign, service.Key) != 0 {
 		return CommonError.INVALID_TOKEN
 	}

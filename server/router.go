@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,29 +95,61 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func GormTransactionHandler(db Database) echo.MiddlewareFunc {
+
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
+
 		return echo.HandlerFunc(func(c echo.Context) error {
+
 			if c.Request().Method != "GET" {
+
 				txi, _ := db.Transaction()
+
 				tx := txi.(*gorm.DB)
+
 				c.Set(ContextKeyTransaction, tx)
 
+				ctx := c.Request().Context()
+
+				ctx2 := context.WithValue(ctx, ContextKeyTransaction, tx)
+
+				c.SetRequest(c.Request().WithContext(ctx2))
+
 				if err := next(c); err != nil {
+
 					tx.Rollback()
+
 					log.Logger().Debug("Transaction Rollback: ", err)
+
 					return err
+
 				}
+
 				log.Logger().Debug("Transaction Commit")
+
 				tx.Commit()
+
 			} else {
+
 				txi, _ := db.Session()
+
 				c.Set(ContextKeyTransaction, txi)
+
+				ctx := c.Request().Context()
+
+				ctx2 := context.WithValue(ctx, ContextKeyTransaction, txi)
+
+				c.SetRequest(c.Request().WithContext(ctx2))
+
 				return next(c)
+
 			}
 
 			return nil
+
 		})
+
 	}
+
 }
 
 func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
@@ -344,11 +377,10 @@ func AuthenticateHandler(s *Service) echo.HandlerFunc {
 		}
 		// this is mock user for demo authenticate step in external service
 		users := map[string]User{
-			"user1": {ExternalId: "1", UserName: "user1", Password: "pass1"},
-			"user2": {ExternalId: "1", UserName: "user2", Password: "pass2"},
-			"user3": {ExternalId: "1", UserName: "user3", Password: "pass3"},
+			"user1": {ExternalId: "external_id_1", UserName: "user1", Password: "pass1"},
+			"user2": {ExternalId: "external_id_2", UserName: "user2", Password: "pass2"},
+			"user3": {ExternalId: "external_id_3", UserName: "user3", Password: "pass3"},
 		}
-		var existedUser User
 		pr := new(AuthenticateRequest)
 		c.Bind(pr)
 		if err := c.Validate(pr); err != nil {
@@ -356,15 +388,15 @@ func AuthenticateHandler(s *Service) echo.HandlerFunc {
 		}
 
 		// authenticate -- for demo :)
-		if existedUser, ok := users[pr.UserName]; ok == true {
-			if existedUser.Password != pr.Password {
+		if _, ok := users[pr.UserName]; ok == true {
+			if users[pr.UserName].Password != pr.Password {
 				return c.JSON(http.StatusForbidden, errors.New("Invalid username or password "))
 			}
 		} else {
 			return c.JSON(http.StatusForbidden, errors.New("User is not existed "))
 		}
-
-		cert, err := s.getServerCert(pr.ServiceID, existedUser.ExternalId)
+		fmt.Printf("\nfucking debug: %v", users[pr.UserName])
+		cert, err := s.getServerCert(pr.ServiceID, users[pr.UserName].ExternalId)
 		if err != nil {
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
@@ -389,7 +421,8 @@ func (s *Service) getServerCert(serviceId, externalId string) (*gokontrol.Object
 		return nil, err
 	}
 	response, err := http.Post(fmt.Sprintf("http://localhost:%s/api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
-
+	fmt.Printf("\n http://localhost:%s/api/cert --- %v", s.Config.HTTPPort, string(bodyData))
+	fmt.Printf("\n debug : %v \n", response)
 	if err != nil {
 		return nil, err
 	}

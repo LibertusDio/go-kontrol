@@ -38,13 +38,13 @@ http:
   middlewares:
     test-auth:
       forwardAuth:
-        address: "http://127.0.0.1:4445/validate"
+        address: "http://host.docker.internal:4445/validate"
   services:
     route-to-authorize-api:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:4445/api/authorize"
+          - url: "http://host.docker.internal:4445/api/authorize"
     route-to-api-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:4445/health"
+          - url: "http://host.docker.internal:4445/health"

@@ -7,14 +7,11 @@ services:
       - "--providers.docker=true"
     container_name: "traefik"
     hostname: "traefik"
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik.yml:/traefik.yml:ro"
     restart: always
+    network_mode: "host"
   whoami:
     image: "traefik/whoami"
     labels:
@@ -22,7 +19,35 @@ services:
       - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
       - "traefik.http.routers.whoami.service=route-to-authorize-api"
       - "traefik.http.routers.whoami.entrypoints=web"
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql
+      - MYSQL_USER=django
+      - MYSQL_PASSWORD=secret
+      - MYSQL_DATABASE=auth_db
+    volumes:
+      - data-volumes:/var/lib/mysql
+    network_mode: "host"
+    # SSO service for demo
+  sso_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=test
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    network_mode: "host"
+
+
+volumes:
+  data-volumes:
+    external: true
 networks:
-  default:
-    external:
-      name: $DEFAULT_NETWORK
+  backend:
+    external : true

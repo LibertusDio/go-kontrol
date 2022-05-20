@@ -44,7 +44,7 @@ func main() {
 	if err != nil {               // Handle errors reading the config file
 		logger.Warn(fmt.Sprintf("Fail to read file, use default configure, error detail %v /n", err))
 	}
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
 	viper.AutomaticEnv()
 	var cfg *Config
 	err = viper.Unmarshal(&cfg)
