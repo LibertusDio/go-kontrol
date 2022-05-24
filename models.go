@@ -27,8 +27,8 @@ type Service struct {
 
 //ObjectPermission Contains object and it's permission
 type ObjectPermission struct {
-	Object     Object
-	Permission map[string]map[string]bool
+	ObjectId string `json:"object_id"`
+	Token    string `json:"token"`
 }
 
 type Policy struct {

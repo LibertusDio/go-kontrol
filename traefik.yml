@@ -25,7 +25,8 @@ http:
       rule: "Path(`/api`)"
       service: route-to-api-service
       middlewares:
-        - "test-auth"
+        - "auth"
+        - "replacepath-regex"
       priority: 1000
       entryPoints:
         - web
@@ -33,26 +34,28 @@ http:
       rule: "Path(`/login`)"
       service: "route-to-authorize-api"
       middlewares:
-        - "test-replacepath-authorize"
+        - "replacepath-authorize"
       priority: 0
       entryPoints:
         - web
   middlewares:
-    test-auth:
+    auth:
       forwardAuth:
-        address: "http://sso_service:4445/validate"
-#        address: "http://127.0.0.1:4445/validate"
-    test-replacepath-authorize:
+        address: "http://sso_service:4445/internal_api/validate"
+    replacepath-authorize:
       replacePath:
-        path: "/api/authorize"
+        path: "/internal_api/authorize"
+     # this demo replace path by regex
+    replacepath-regex:
+      replacePathRegex:
+        regex: "^/api/(.*)"
+        replacement: "/internal_api/$1"
   services:
     route-to-authorize-api:
       networks:
         - backend
       loadBalancer:
         servers:
-#          - url: "https://google.com"
-#          - url: "http://host.docker.internal:4445/api/authorize"
           - url: "http://sso_service:4445"
     route-to-api-service:
       networks:

@@ -5,6 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/golang-jwt/jwt"
 	"strings"
 	"time"
 
@@ -20,7 +23,7 @@ type KontrolOption struct {
 //Default config for kontrol
 var DefaultKontrolOption = KontrolOption{
 	DefaultTimeout: 1800, // second
-	SecretKey:      "",
+	SecretKey:      "secret",
 }
 
 //DefaultKontrol simple Kontrol
@@ -34,9 +37,29 @@ func NewBasicKontrol(store KontrolStore) Kontrol {
 	return &DefaultKontrol{store: store, Option: DefaultKontrolOption}
 }
 
+//Claims -- JWT claim use for specific customize
+type Claims struct {
+	Permission map[string]map[string]bool `json:"permission"`
+	Token      string                     `json:"token"`
+	jwt.StandardClaims
+}
+
 //ValidateToken validate the given token
-func (k DefaultKontrol) ValidateToken(c context.Context, token string, serviceid string) (*Object, error) {
-	object, err := k.store.GetObjectByToken(c, token, serviceid, time.Now().Unix())
+func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, serviceId string) (*Object, error) {
+	customizeClaim := &Claims{}
+	tkn, err := jwt.ParseWithClaims(jwtToken, customizeClaim, func(token *jwt.Token) (interface{}, error) {
+		return []byte(k.Option.SecretKey), nil
+	})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			return nil, err
+		}
+	}
+	if !tkn.Valid {
+		return nil, errors.New("Token is invalid ")
+	}
+
+	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, serviceId, time.Now().Unix())
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -69,7 +92,7 @@ func (k DefaultKontrol) IssueCertForService(ctx context.Context, objID string, s
 		return nil, CommonError.INVALID_SERVICE
 	}
 	// generate cert
-	cert, sign, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +101,8 @@ func (k DefaultKontrol) IssueCertForService(ctx context.Context, objID string, s
 	}
 
 	return &ObjectPermission{
-		Object:     *obj,
-		Permission: cert.Permission,
+		ObjectId: objID,
+		Token:    jwtToken,
 	}, nil
 }
 
@@ -106,7 +129,7 @@ func (k DefaultKontrol) IssueCertForClient(ctx context.Context, externalID strin
 	}
 	obj.ExpiryDate = time.Now().Unix() + k.Option.DefaultTimeout
 	// generate cert
-	cert, sign, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -115,10 +138,9 @@ func (k DefaultKontrol) IssueCertForClient(ctx context.Context, externalID strin
 	if err != nil {
 		return nil, err
 	}
-
 	return &ObjectPermission{
-		Object:     *obj,
-		Permission: cert.Permission,
+		ObjectId: obj.ID,
+		Token:    jwtToken,
 	}, nil
 }
 
@@ -160,7 +182,7 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, ex
 		ApplyPolicy: nil,
 	}
 
-	cert, sign, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -169,10 +191,9 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, ex
 	if err != nil {
 		return nil, err
 	}
-
 	return &ObjectPermission{
-		Object:     *obj,
-		Permission: cert.Permission,
+		ObjectId: obj.ID,
+		Token:    jwtToken,
 	}, nil
 }
 
@@ -208,7 +229,7 @@ func (k DefaultKontrol) UpdateObject(ctx context.Context, obj *Object, serviceke
 }
 
 //CreateCert create final cert then sign
-func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Policy) (*CertForSign, string, error) {
+func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Policy) (*CertForSign, string, string, error) {
 	tempcert := &CertForSign{
 		ID:         obj.ID,
 		GlobalID:   obj.GlobalID,
@@ -232,7 +253,7 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 			case PolicyPermission.FALSE:
 			case PolicyPermission.ANY:
 			default:
-				return nil, "", CommonError.MALFORM_PERMISSION
+				return nil, "", "", CommonError.MALFORM_PERMISSION
 			}
 		}
 		tempperm[dp.ServiceID] = ts
@@ -251,7 +272,7 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 				delete(ts, k)
 			case PolicyPermission.ANY:
 			default:
-				return nil, "", CommonError.MALFORM_PERMISSION
+				return nil, "", "", CommonError.MALFORM_PERMISSION
 			}
 		}
 		tempperm[cp.ServiceID] = ts
@@ -270,7 +291,7 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 				delete(ts, k)
 			case PolicyPermission.ANY:
 			default:
-				return nil, "", CommonError.MALFORM_PERMISSION
+				return nil, "", "", CommonError.MALFORM_PERMISSION
 			}
 		}
 		tempperm[cp.ServiceID] = ts
@@ -279,12 +300,26 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 	tempcert.Permission = tempperm
 	certstr, err := json.Marshal(tempcert)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	scert := append([]byte(k.Option.SecretKey), certstr...)
 	hash := sha256.Sum256(scert)
 	sign := base64.URLEncoding.EncodeToString(hash[:])
-	return tempcert, sign, nil
+	claims := &Claims{
+		Permission: tempperm,
+		Token:      sign,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: obj.ExpiryDate,
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// Sign and get the complete encoded token as a string using the secret
+	fmt.Printf("\n FUCKING DEBUG %v \n", k.Option)
+	jwtString, err := token.SignedString([]byte(k.Option.SecretKey))
+	if err != nil {
+		return nil, "", "", err
+	}
+	return tempcert, sign, jwtString, nil
 }
 
 //CreatePolicy create a policy

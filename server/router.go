@@ -67,7 +67,7 @@ func NewEcho(s *Service) *echo.Echo {
 		return c.String(http.StatusOK, strconv.FormatInt(time.Now().Unix(), 10))
 	})
 	//e.POST("/login", AuthenticateHandler(s))
-	api := e.Group("/api")
+	api := e.Group("/internal_api")
 	{
 		// api
 		api.POST("/object", CreateSimpleObjectHandler(s))
@@ -296,6 +296,7 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 		}
 		_, err := s.Kontrol.ValidateToken(c.Request().Context(), pr.Token, pr.ServiceID)
 		if err != nil {
+			log.Logger().Debug(err)
 			return c.JSON(http.StatusForbidden, CommonError.FORBIDDEN)
 		}
 		return c.JSON(http.StatusOK, ValidateObjectResponse{Code: http.StatusOK, Message: "ok"})
@@ -323,6 +324,7 @@ func GetCertForClientHandler(s *Service) echo.HandlerFunc {
 		}
 		cert, err := s.Kontrol.IssueCertForClient(c.Request().Context(), pr.ObjectID, pr.ServiceID)
 		if err != nil {
+			log.Logger().Error(err)
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 		return c.JSON(http.StatusOK, GetCertForClientResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
@@ -397,6 +399,7 @@ func AuthenticateHandler(s *Service) echo.HandlerFunc {
 		}
 		cert, err := s.getServerCert(pr.ServiceID, users[pr.UserName].ExternalId)
 		if err != nil {
+			log.Logger().Error(err)
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 		return c.JSON(http.StatusOK, AuthenticateResponse{Code: http.StatusOK, Message: "ok", ObjectPermission: cert})
@@ -419,7 +422,7 @@ func (s *Service) getServerCert(serviceId, externalId string) (*gokontrol.Object
 	if err != nil {
 		return nil, err
 	}
-	response, err := http.Post(fmt.Sprintf("http://sso_service:%s/api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
+	response, err := http.Post(fmt.Sprintf("http://sso_service:%s/internal_api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
 	if err != nil {
 		return nil, err
 	}
