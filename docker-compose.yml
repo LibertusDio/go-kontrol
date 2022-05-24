@@ -7,47 +7,56 @@ services:
       - "--providers.docker=true"
     container_name: "traefik"
     hostname: "traefik"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik.yml:/traefik.yml:ro"
-    restart: always
-    network_mode: "host"
+    restart: unless-stopped
+    networks:
+      - backend
   whoami:
     image: "traefik/whoami"
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      - "traefik.enable=false"
+      - "traefik.http.routers.whoami.rule.two.action=Host(`whoami.localhost`)"
       - "traefik.http.routers.whoami.service=route-to-authorize-api"
       - "traefik.http.routers.whoami.entrypoints=web"
+    # SSO service for demo
   db:
     image: mysql:5.7
-    restart: always
+    ports:
+      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=mysql
       - MYSQL_USER=django
       - MYSQL_PASSWORD=secret
       - MYSQL_DATABASE=auth_db
     volumes:
-      - data-volumes:/var/lib/mysql
-    network_mode: "host"
-    # SSO service for demo
+      - data-volume:/var/lib/mysql
+    networks:
+      - backend
   sso_service:
     build:
       context: . # Use an image built from the specified dockerfile in the current directory.
       dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      - ENVIRONMENT=test
+    ports:
+      - "4445:4445" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
     labels:
       - "traefik.enable=true"
     depends_on:
       - db
-    network_mode: "host"
-
-
-volumes:
-  data-volumes:
-    external: true
+    networks:
+      - backend
 networks:
+  default:
+    external:
+      name: $DEFAULT_NETWORK
   backend:
     external : true
+volumes:
+  data-volume:
+    external: true

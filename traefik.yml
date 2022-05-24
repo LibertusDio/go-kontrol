@@ -14,7 +14,7 @@ entryPoints:
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: true
+    exposedByDefault: false
   file:
     filename: "traefik.yml"
 
@@ -31,20 +31,33 @@ http:
         - web
     route-to-auth:
       rule: "Path(`/login`)"
-      service: route-to-authorize-api
-      priority: 1000
+      service: "route-to-authorize-api"
+      middlewares:
+        - "test-replacepath-authorize"
+      priority: 0
       entryPoints:
         - web
   middlewares:
     test-auth:
       forwardAuth:
-        address: "http://host.docker.internal:4445/validate"
+        address: "http://sso_service:4445/validate"
+#        address: "http://127.0.0.1:4445/validate"
+    test-replacepath-authorize:
+      replacePath:
+        path: "/api/authorize"
   services:
     route-to-authorize-api:
+      networks:
+        - backend
       loadBalancer:
         servers:
-          - url: "http://host.docker.internal:4445/api/authorize"
+#          - url: "https://google.com"
+#          - url: "http://host.docker.internal:4445/api/authorize"
+          - url: "http://sso_service:4445"
     route-to-api-service:
+      networks:
+        - backend
       loadBalancer:
         servers:
-          - url: "http://host.docker.internal:4445/health"
+#          - url: "http://host.docker.internal:4445/health"
+          - url: "http://127.0.0.1:4445/health"

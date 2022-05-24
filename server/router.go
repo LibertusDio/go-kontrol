@@ -66,7 +66,7 @@ func NewEcho(s *Service) *echo.Echo {
 	e.GET("/check-time", func(c echo.Context) error {
 		return c.String(http.StatusOK, strconv.FormatInt(time.Now().Unix(), 10))
 	})
-
+	//e.POST("/login", AuthenticateHandler(s))
 	api := e.Group("/api")
 	{
 		// api
@@ -395,7 +395,6 @@ func AuthenticateHandler(s *Service) echo.HandlerFunc {
 		} else {
 			return c.JSON(http.StatusForbidden, errors.New("User is not existed "))
 		}
-		fmt.Printf("\nfucking debug: %v", users[pr.UserName])
 		cert, err := s.getServerCert(pr.ServiceID, users[pr.UserName].ExternalId)
 		if err != nil {
 			return c.JSON(http.StatusUnprocessableEntity, err)
@@ -420,9 +419,7 @@ func (s *Service) getServerCert(serviceId, externalId string) (*gokontrol.Object
 	if err != nil {
 		return nil, err
 	}
-	response, err := http.Post(fmt.Sprintf("http://localhost:%s/api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
-	fmt.Printf("\n http://localhost:%s/api/cert --- %v", s.Config.HTTPPort, string(bodyData))
-	fmt.Printf("\n debug : %v \n", response)
+	response, err := http.Post(fmt.Sprintf("http://sso_service:%s/api/cert", s.Config.HTTPPort), "application/json", bytes.NewBuffer(bodyData))
 	if err != nil {
 		return nil, err
 	}
