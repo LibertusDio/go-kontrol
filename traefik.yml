@@ -22,8 +22,8 @@ providers:
 http:
   routers:
     route-to-server:
-      rule: "PathPrefix(`/api/`)"
-      service: route-to-api-service
+      rule: "PathPrefix(`/idt/api/`)"
+      service: route-to-api-service-idt
       middlewares:
         - "auth"
         - "replacepath-regex"
@@ -46,11 +46,11 @@ http:
     replacepath-authorize:
       replacePath:
         path: "/internal_api/authorize"
-     # this demo replace path by regex
+     # this demo replaces path by regex
     replacepath-regex:
       replacePathRegex:
-        regex: "^/api/(.*)"
-        replacement: "/internal_api/$1"
+        regex: "(.*?)/api/(.*)"
+        replacement: "/internal_api/$2"
   services:
     route-to-authorize-api:
       networks:
@@ -58,7 +58,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://sso_service:4445"
-    route-to-api-service:
+    route-to-api-service-idt:
       networks:
         - backend
       loadBalancer:

@@ -395,3 +395,56 @@ func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontro
 	service.EnforcePolicy = enforcepolicy
 	return service, nil
 }
+
+// GetServiceByExternalId get service by external serivce id
+//todo -- implement cache for convert map external_service_id to service_id
+func (k *kontrolStorage) GetServiceByExternalId(c context.Context, externalServiceId string) (*gokontrol.Service, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var servicestore serviceStore
+	err := tx.WithContext(c).Table(DBTableName.TB_SERVICES).Where("service_id = ? ", externalServiceId).First(&servicestore).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, gokontrol.CommonError.NOT_FOUND
+	}
+	service := &gokontrol.Service{
+		ID:         servicestore.ID,
+		ServiceID:  servicestore.ServiceID,
+		Name:       servicestore.Name,
+		Key:        servicestore.Key,
+		Status:     servicestore.Status,
+		ExpiryDate: servicestore.ExpiryDate,
+	}
+
+	var defaultmesh []*servicepolicymesh
+	err = tx.WithContext(c).Table(DBTableName.TB_SERVICE_POLICY_MESH).Where("service_id = ? AND `type` = ? ", service.ID, ServicePolicyType.DEFAULT).Scan(&defaultmesh).Error
+	if err != nil {
+		return nil, err
+	}
+	defaultpolicy := make([]*gokontrol.Policy, 0)
+	for _, m := range defaultmesh {
+		policy, err := k.GetPolicyByID(c, m.PolicyID)
+		if err != nil {
+			return nil, err
+		}
+		defaultpolicy = append(defaultpolicy, policy)
+	}
+	service.DefaultPolicy = defaultpolicy
+
+	var enforcemesh []*servicepolicymesh
+	err = tx.WithContext(c).Table(DBTableName.TB_SERVICE_POLICY_MESH).Where("service_id = ? AND `type` = ? ", service.ID, ServicePolicyType.ENFORCE).Scan(&enforcemesh).Error
+	if err != nil {
+		return nil, err
+	}
+	enforcepolicy := make([]*gokontrol.Policy, 0)
+	for _, m := range enforcemesh {
+		policy, err := k.GetPolicyByID(c, m.PolicyID)
+		if err != nil {
+			return nil, err
+		}
+		enforcepolicy = append(enforcepolicy, policy)
+	}
+	service.EnforcePolicy = enforcepolicy
+	return service, nil
+}

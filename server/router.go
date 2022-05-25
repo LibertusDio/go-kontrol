@@ -289,14 +289,15 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 		if _, ok := c.Request().Header["Authorization"]; !ok {
 			return c.JSON(http.StatusBadRequest, errors.New("Header 'Access-Token' is empty "))
 		}
-		// verify service-id exist
-		if _, ok := c.Request().Header["X-Forwarded-Service-Id"]; !ok {
-			return c.JSON(http.StatusBadRequest, errors.New("Header 'Service-Id' is empty "))
+		for k, v := range c.Request().Header {
+			fmt.Printf("\n k: %v -- v: %v", k, v)
 		}
 		reqToken := c.Request().Header["Authorization"][0]
 		reqToken = strings.Trim(strings.Replace(reqToken, "Bearer", "", 1), " ")
-		reqServiceID := c.Request().Header["X-Forwarded-Service-Id"][0]
-		_, err := s.Kontrol.ValidateToken(c.Request().Context(), reqToken, reqServiceID)
+		forwardedPath := c.Request().Header["X-Forwarded-Uri"][0]
+		forwardedPaths := strings.Split(forwardedPath, "/")
+
+		_, err := s.Kontrol.ValidateToken(c.Request().Context(), reqToken, forwardedPaths[1])
 		if err != nil {
 			log.Logger().Debug(err)
 			return c.JSON(http.StatusForbidden, CommonError.FORBIDDEN)

@@ -45,7 +45,7 @@ type Claims struct {
 }
 
 //ValidateToken validate the given token
-func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, serviceId string) (*Object, error) {
+func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, externalServiceID string) (*Object, error) {
 	customizeClaim := &Claims{}
 	tkn, err := jwt.ParseWithClaims(jwtToken, customizeClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(k.Option.SecretKey), nil
@@ -58,8 +58,13 @@ func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, servic
 	if !tkn.Valid {
 		return nil, errors.New("Token is invalid ")
 	}
-
-	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, serviceId, time.Now().Unix())
+	// verify service follow path
+	service, err := k.store.GetServiceByExternalId(c, externalServiceID)
+	if err != nil && err != CommonError.NOT_FOUND {
+		return nil, err
+	}
+	//verify token
+	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, service.ID, time.Now().Unix())
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
