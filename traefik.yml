@@ -22,7 +22,7 @@ providers:
 http:
   routers:
     route-to-server:
-      rule: "Path(`/api`)"
+      rule: "PathPrefix(`/api/`)"
       service: route-to-api-service
       middlewares:
         - "auth"
@@ -42,6 +42,7 @@ http:
     auth:
       forwardAuth:
         address: "http://sso_service:4445/internal_api/validate"
+        trustForwardHeader: true
     replacepath-authorize:
       replacePath:
         path: "/internal_api/authorize"
@@ -63,4 +64,4 @@ http:
       loadBalancer:
         servers:
 #          - url: "http://host.docker.internal:4445/health"
-          - url: "http://127.0.0.1:4445/health"
+          - url: "http://sso_service:4445"

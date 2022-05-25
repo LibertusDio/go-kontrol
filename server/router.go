@@ -279,22 +279,24 @@ func CreatePolicyHandler(s *Service) echo.HandlerFunc {
 //ValidateObjectHandler quick check if token is valid
 func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		type ValidateObjectRequest struct {
-			Token     string `query:"token" validate:"required"`
-			ServiceID string `query:"service_id" validate:"required"`
-		}
 
 		type ValidateObjectResponse struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
 		}
 
-		pr := new(ValidateObjectRequest)
-		c.Bind(pr)
-		if err := c.Validate(pr); err != nil {
-			return c.JSON(http.StatusBadRequest, err)
+		// verify Access-Token header exist
+		if _, ok := c.Request().Header["Authorization"]; !ok {
+			return c.JSON(http.StatusBadRequest, errors.New("Header 'Access-Token' is empty "))
 		}
-		_, err := s.Kontrol.ValidateToken(c.Request().Context(), pr.Token, pr.ServiceID)
+		// verify service-id exist
+		if _, ok := c.Request().Header["X-Forwarded-Service-Id"]; !ok {
+			return c.JSON(http.StatusBadRequest, errors.New("Header 'Service-Id' is empty "))
+		}
+		reqToken := c.Request().Header["Authorization"][0]
+		reqToken = strings.Trim(strings.Replace(reqToken, "Bearer", "", 1), " ")
+		reqServiceID := c.Request().Header["X-Forwarded-Service-Id"][0]
+		_, err := s.Kontrol.ValidateToken(c.Request().Context(), reqToken, reqServiceID)
 		if err != nil {
 			log.Logger().Debug(err)
 			return c.JSON(http.StatusForbidden, CommonError.FORBIDDEN)

@@ -50,7 +50,7 @@ func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, servic
 	tkn, err := jwt.ParseWithClaims(jwtToken, customizeClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(k.Option.SecretKey), nil
 	})
-	if err != nil {
+	if err != nil || jwtToken == "" || tkn == nil {
 		if err == jwt.ErrSignatureInvalid {
 			return nil, err
 		}
