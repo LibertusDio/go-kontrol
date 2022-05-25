@@ -51,6 +51,45 @@ services:
       - db
     networks:
       - backend
+  idt_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: idt.Dockerfile
+    ports:
+      - "4448:4448" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  hrd_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: hrd.Dockerfile
+    ports:
+      - "4447:4447" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  adt_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: adt.Dockerfile
+    ports:
+      - "4446:4446" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
 networks:
   backend:
     external : true

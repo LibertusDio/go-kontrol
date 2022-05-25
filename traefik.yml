@@ -21,9 +21,27 @@ providers:
 ## DYNAMIC CONFIGURATION
 http:
   routers:
-    route-to-server:
+    route-to-idtserver:
       rule: "PathPrefix(`/idt/api/`)"
       service: route-to-api-service-idt
+      middlewares:
+        - "auth"
+        - "replacepath-regex"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-adtserver:
+      rule: "PathPrefix(`/adt/api/`)"
+      service: route-to-api-service-adt
+      middlewares:
+        - "auth"
+        - "replacepath-regex"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-hrdserver:
+      rule: "PathPrefix(`/hrd/api/`)"
+      service: route-to-api-service-hrd
       middlewares:
         - "auth"
         - "replacepath-regex"
@@ -63,5 +81,16 @@ http:
         - backend
       loadBalancer:
         servers:
-#          - url: "http://host.docker.internal:4445/health"
-          - url: "http://sso_service:4445"
+          - url: "http://sso_service:4448"
+    route-to-api-service-adt:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://sso_service:4446"
+    route-to-api-service-hrd:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://sso_service:4447"

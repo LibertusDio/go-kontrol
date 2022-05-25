@@ -154,6 +154,7 @@ func GormTransactionHandler(db Database) echo.MiddlewareFunc {
 
 func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
+
 		type CreateSimpleObjectRequest struct {
 			ObjectID  string `json:"object_id" validate:"required"`
 			Token     string `json:"token" validate:"required"`
@@ -174,6 +175,7 @@ func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
 
 		objcert, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID, pr.Token)
 		if err != nil {
+			log.Logger().Error(err)
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 
@@ -382,9 +384,41 @@ func AuthenticateHandler(s *Service) echo.HandlerFunc {
 		}
 		// this is mock user for demo authenticate step in external service
 		users := map[string]User{
-			"user1": {ExternalId: "external_id_1", UserName: "user1", Password: "pass1"},
-			"user2": {ExternalId: "external_id_2", UserName: "user2", Password: "pass2"},
-			"user3": {ExternalId: "external_id_3", UserName: "user3", Password: "pass3"},
+			// adt - user
+			"adtuser1":  {ExternalId: "adt_id_1", UserName: "adtuser1", Password: "pass1"},
+			"adtuser2":  {ExternalId: "adt_id_2", UserName: "adtuser2", Password: "pass2"},
+			"adtuser3":  {ExternalId: "adt_id_3", UserName: "adtuser3", Password: "pass3"},
+			"adtuser4":  {ExternalId: "adt_id_4", UserName: "adtuser4", Password: "pass4"},
+			"adtuser5":  {ExternalId: "adt_id_5", UserName: "adtuser5", Password: "pass5"},
+			"adtuser6":  {ExternalId: "adt_id_6", UserName: "adtuser6", Password: "pass6"},
+			"adtuser7":  {ExternalId: "adt_id_7", UserName: "adtuser7", Password: "pass7"},
+			"adtuser8":  {ExternalId: "adt_id_8", UserName: "adtuser8", Password: "pass8"},
+			"adtuser9":  {ExternalId: "adt_id_9", UserName: "adtuser9", Password: "pass9"},
+			"adtuser10": {ExternalId: "adt_id_19", UserName: "adtuser10", Password: "pass10"},
+
+			//idt user for login
+			"idtuser1":  {ExternalId: "idt_id_1", UserName: "idtuser1", Password: "pass1"},
+			"idtuser2":  {ExternalId: "idt_id_2", UserName: "idtuser2", Password: "pass2"},
+			"idtuser3":  {ExternalId: "idt_id_3", UserName: "idtuser3", Password: "pass3"},
+			"idtuser4":  {ExternalId: "idt_id_4", UserName: "idtuser4", Password: "pass4"},
+			"idtuser5":  {ExternalId: "idt_id_5", UserName: "idtuser5", Password: "pass5"},
+			"idtuser6":  {ExternalId: "idt_id_6", UserName: "idtuser6", Password: "pass6"},
+			"idtuser7":  {ExternalId: "idt_id_7", UserName: "idtuser7", Password: "pass7"},
+			"idtuser8":  {ExternalId: "idt_id_8", UserName: "idtuser8", Password: "pass8"},
+			"idtuser9":  {ExternalId: "idt_id_9", UserName: "idtuser9", Password: "pass9"},
+			"idtuser10": {ExternalId: "idt_id_19", UserName: "idtuser10", Password: "pass10"},
+
+			//hrd user for login
+			"hrduser1":  {ExternalId: "hrd_id_1", UserName: "hrduser1", Password: "pass1"},
+			"hrduser2":  {ExternalId: "hrd_id_2", UserName: "hrduser2", Password: "pass2"},
+			"hrduser3":  {ExternalId: "hrd_id_3", UserName: "hrduser3", Password: "pass3"},
+			"hrduser4":  {ExternalId: "hrd_id_4", UserName: "hrduser4", Password: "pass4"},
+			"hrduser5":  {ExternalId: "hrd_id_5", UserName: "hrduser5", Password: "pass5"},
+			"hrduser6":  {ExternalId: "hrd_id_6", UserName: "hrduser6", Password: "pass6"},
+			"hrduser7":  {ExternalId: "hrd_id_7", UserName: "hrduser7", Password: "pass7"},
+			"hrduser8":  {ExternalId: "hrd_id_8", UserName: "hrduser8", Password: "pass8"},
+			"hrduser9":  {ExternalId: "hrd_id_9", UserName: "hrduser9", Password: "pass9"},
+			"hrduser10": {ExternalId: "hrd_id_19", UserName: "hrduser10", Password: "pass10"},
 		}
 		pr := new(AuthenticateRequest)
 		c.Bind(pr)

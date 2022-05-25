@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/golang-jwt/jwt"
 	"strings"
 	"time"
@@ -319,7 +318,6 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	// Sign and get the complete encoded token as a string using the secret
-	fmt.Printf("\n FUCKING DEBUG %v \n", k.Option)
 	jwtString, err := token.SignedString([]byte(k.Option.SecretKey))
 	if err != nil {
 		return nil, "", "", err
