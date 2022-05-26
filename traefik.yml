@@ -81,16 +81,16 @@ http:
         - backend
       loadBalancer:
         servers:
-          - url: "http://sso_service:4448"
+          - url: "http://idt_service:4448"
     route-to-api-service-adt:
       networks:
         - backend
       loadBalancer:
         servers:
-          - url: "http://sso_service:4446"
+          - url: "http://adt_service:4446"
     route-to-api-service-hrd:
       networks:
         - backend
       loadBalancer:
         servers:
-          - url: "http://sso_service:4447"
+          - url: "http://hrd_service:4447"

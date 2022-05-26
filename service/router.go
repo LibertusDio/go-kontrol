@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -39,6 +40,13 @@ func NewEcho(s *Service) *echo.Echo {
 	})
 	e.GET("/check-time", func(c echo.Context) error {
 		return c.String(http.StatusOK, strconv.FormatInt(time.Now().Unix(), 10))
+	})
+	e.GET("/internal_api/info", func(c echo.Context) error {
+		type InfoResponse struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		return c.JSON(http.StatusOK, InfoResponse{Code: http.StatusOK, Message: fmt.Sprintf("Welcome to %s service", s.Config.AppName)})
 	})
 
 	// admin := e.Group("/admin")

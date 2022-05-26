@@ -291,9 +291,6 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 		if _, ok := c.Request().Header["Authorization"]; !ok {
 			return c.JSON(http.StatusBadRequest, errors.New("Header 'Access-Token' is empty "))
 		}
-		for k, v := range c.Request().Header {
-			fmt.Printf("\n k: %v -- v: %v", k, v)
-		}
 		reqToken := c.Request().Header["Authorization"][0]
 		reqToken = strings.Trim(strings.Replace(reqToken, "Bearer", "", 1), " ")
 		forwardedPath := c.Request().Header["X-Forwarded-Uri"][0]
