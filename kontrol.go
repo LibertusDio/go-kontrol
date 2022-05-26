@@ -182,6 +182,7 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, ex
 		Status:      ObjectStatus.ENABLE,
 		Attributes:  nil,
 		Token:       "",
+		GlobalID:    uuid.New().String(),
 		ExpiryDate:  time.Now().Unix() + k.Option.DefaultTimeout,
 		ApplyPolicy: nil,
 	}
