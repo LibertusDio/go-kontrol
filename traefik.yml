@@ -27,6 +27,7 @@ http:
       middlewares:
         - "auth"
         - "replacepath-regex"
+#        - "cors-headers"
       priority: 1000
       entryPoints:
         - web
@@ -36,6 +37,7 @@ http:
       middlewares:
         - "auth"
         - "replacepath-regex"
+#        - "cors-headers"
       priority: 1000
       entryPoints:
         - web
@@ -45,6 +47,7 @@ http:
       middlewares:
         - "auth"
         - "replacepath-regex"
+#        - "cors-headers"
       priority: 1000
       entryPoints:
         - web
@@ -53,6 +56,7 @@ http:
       service: "route-to-authorize-api"
       middlewares:
         - "replacepath-authorize"
+#        - "cors-headers"
       priority: 0
       entryPoints:
         - web
@@ -69,6 +73,21 @@ http:
       replacePathRegex:
         regex: "(.*?)/api/(.*)"
         replacement: "/internal_api/$2"
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+          - HEAD
+        accessControlAllowHeaders:
+          - "*"
+        accessControlAllowOriginList:
+          - "*"
+        referrerPolicy: origin
+        accessControlMaxAge: 100
+        addVaryHeader: true
   services:
     route-to-authorize-api:
       networks:
@@ -94,3 +113,5 @@ http:
       loadBalancer:
         servers:
           - url: "http://hrd_service:4447"
+  cors:
+    allow-credentials: true

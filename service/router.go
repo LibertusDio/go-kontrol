@@ -28,12 +28,11 @@ func NewEcho(s *Service) *echo.Echo {
 	// Fetch new store.
 	e.Use(GormTransactionHandler(s.DB))
 
-	//CORS
+	////CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowMethods: []string{echo.GET, echo.HEAD, echo.OPTIONS, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
-
 	// Routes
 	e.GET("/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")

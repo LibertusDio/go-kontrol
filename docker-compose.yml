@@ -90,6 +90,15 @@ services:
       - db
     networks:
       - backend
+  fe_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: fe.Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
+    labels:
+      - "traefik.enable=true"
 networks:
   backend:
     external : true

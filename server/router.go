@@ -32,6 +32,9 @@ func urlSkipper(c echo.Context) bool {
 	if strings.HasPrefix(c.Path(), "/check-time") {
 		return true
 	}
+	if strings.HasPrefix(c.Path(), "/internal_api/validate") {
+		return true
+	}
 
 	return false
 }
@@ -56,7 +59,7 @@ func NewEcho(s *Service) *echo.Echo {
 	//CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE, echo.OPTIONS},
 	}))
 
 	// Routes
@@ -100,7 +103,6 @@ func GormTransactionHandler(db Database) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 
 		return echo.HandlerFunc(func(c echo.Context) error {
-
 			if c.Request().Method != "GET" {
 
 				txi, _ := db.Transaction()
@@ -336,6 +338,9 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 		type ValidateObjectResponse struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
+		}
+		if c.Request().Header.Get("X-Forwarded-Method") == http.MethodOptions {
+			return c.JSON(http.StatusOK, ValidateObjectResponse{Code: http.StatusOK, Message: "ok"})
 		}
 
 		// verify Access-Token header exist
