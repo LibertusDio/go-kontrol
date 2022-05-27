@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,18 +28,24 @@ func NewEcho(s *Service) *echo.Echo {
 	// Fetch new store.
 	e.Use(GormTransactionHandler(s.DB))
 
-	//CORS
+	////CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowMethods: []string{echo.GET, echo.HEAD, echo.OPTIONS, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
-
 	// Routes
 	e.GET("/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
 	e.GET("/check-time", func(c echo.Context) error {
 		return c.String(http.StatusOK, strconv.FormatInt(time.Now().Unix(), 10))
+	})
+	e.GET("/internal_api/info", func(c echo.Context) error {
+		type InfoResponse struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		return c.JSON(http.StatusOK, InfoResponse{Code: http.StatusOK, Message: fmt.Sprintf("Welcome to %s service", s.Config.AppName)})
 	})
 
 	// admin := e.Group("/admin")

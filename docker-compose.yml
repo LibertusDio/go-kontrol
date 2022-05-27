@@ -1,0 +1,107 @@
+version: "3.7"
+
+services:
+  traefik:
+    image: "traefik:v2.1"
+    command:
+      - "--providers.docker=true"
+    container_name: "traefik"
+    hostname: "traefik"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik.yml:/traefik.yml:ro"
+    restart: unless-stopped
+    networks:
+      - backend
+  whoami:
+    image: "traefik/whoami"
+    labels:
+      - "traefik.enable=false"
+      - "traefik.http.routers.whoami.rule.two.action=Host(`whoami.localhost`)"
+      - "traefik.http.routers.whoami.service=route-to-authorize-api"
+      - "traefik.http.routers.whoami.entrypoints=web"
+    # SSO service for demo
+  db:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql
+      - MYSQL_USER=django
+      - MYSQL_PASSWORD=secret
+      - MYSQL_DATABASE=auth_db
+    volumes:
+      - data-volume:/var/lib/mysql
+    networks:
+      - backend
+  sso_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: Dockerfile
+    ports:
+      - "4445:4445" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  idt_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: idt.Dockerfile
+    ports:
+      - "4448:4448" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  hrd_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: hrd.Dockerfile
+    ports:
+      - "4447:4447" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  adt_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: adt.Dockerfile
+    ports:
+      - "4446:4446" # Forward the exposed port 8080 on the container to port 8080 on the host machine
+    restart: always
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db
+    networks:
+      - backend
+  fe_service:
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: fe.Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
+    labels:
+      - "traefik.enable=true"
+networks:
+  backend:
+    external : true
+volumes:
+  data-volume:
+    external: true

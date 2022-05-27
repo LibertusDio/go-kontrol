@@ -1,0 +1,117 @@
+## STATIC CONFIGURATION
+log:
+  level: INFO
+
+api:
+  insecure: true
+  dashboard: true
+  debug: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    filename: "traefik.yml"
+
+## DYNAMIC CONFIGURATION
+http:
+  routers:
+    route-to-idtserver:
+      rule: "PathPrefix(`/idt/api/`)"
+      service: route-to-api-service-idt
+      middlewares:
+        - "auth"
+        - "replacepath-regex"
+#        - "cors-headers"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-adtserver:
+      rule: "PathPrefix(`/adt/api/`)"
+      service: route-to-api-service-adt
+      middlewares:
+        - "auth"
+        - "replacepath-regex"
+#        - "cors-headers"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-hrdserver:
+      rule: "PathPrefix(`/hrd/api/`)"
+      service: route-to-api-service-hrd
+      middlewares:
+        - "auth"
+        - "replacepath-regex"
+#        - "cors-headers"
+      priority: 1000
+      entryPoints:
+        - web
+    route-to-auth:
+      rule: "Path(`/login`)"
+      service: "route-to-authorize-api"
+      middlewares:
+        - "replacepath-authorize"
+#        - "cors-headers"
+      priority: 0
+      entryPoints:
+        - web
+  middlewares:
+    auth:
+      forwardAuth:
+        address: "http://sso_service:4445/internal_api/validate"
+        trustForwardHeader: true
+    replacepath-authorize:
+      replacePath:
+        path: "/internal_api/authorize"
+     # this demo replaces path by regex
+    replacepath-regex:
+      replacePathRegex:
+        regex: "(.*?)/api/(.*)"
+        replacement: "/internal_api/$2"
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+          - HEAD
+        accessControlAllowHeaders:
+          - "*"
+        accessControlAllowOriginList:
+          - "*"
+        referrerPolicy: origin
+        accessControlMaxAge: 100
+        addVaryHeader: true
+  services:
+    route-to-authorize-api:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://sso_service:4445"
+    route-to-api-service-idt:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://idt_service:4448"
+    route-to-api-service-adt:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://adt_service:4446"
+    route-to-api-service-hrd:
+      networks:
+        - backend
+      loadBalancer:
+        servers:
+          - url: "http://hrd_service:4447"
+  cors:
+    allow-credentials: true

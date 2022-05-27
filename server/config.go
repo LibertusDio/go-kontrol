@@ -86,25 +86,45 @@ func (c *Postgres) FormatDSN() string {
 }
 
 // Default config
+//const ConfigDefault string = `
+//app_name: "authority"
+//environment: development
+//port: "80"
+//token_ttl: 1800
+//log_level: 1
+//mysql:
+// database: kontrol
+// host: 127.0.0.1
+// password: mysql
+// port: 3306
+// sslmode: disable
+// timeout: 15
+// username: root
+// connection_max: 20
+// connection_time: 300
+// connection_idle_max: 0
+// connection_idle_time: 10
+// log: true
+//`
 const ConfigDefault string = `
 app_name: "authority"
-environment: development
-port: "80"
-token_ttl: 1800
+environment: testing
+port: "4445"
 log_level: 1
-mysql: 
- database: kontrol
- host: 127.0.0.1
- password: mysql
- port: 3306
- sslmode: disable
- timeout: 15
- username: root
- connection_max: 20
- connection_time: 300
- connection_idle_max: 0
- connection_idle_time: 10
- log: true
+token_ttl: 1800
+mysql:
+  database: auth_db
+  host: host.docker.internal
+  password: mysql
+  port: 3306
+  sslmode: disable
+  timeout: 15
+  username: root
+  connection_max: 20
+  connection_time: 300
+  connection_idle_max: 0
+  connection_idle_time: 10
+  log: true
 `
 
 // Auto testing config

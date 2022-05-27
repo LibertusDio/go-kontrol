@@ -25,10 +25,17 @@ type Service struct {
 	EnforcePolicy []*Policy
 }
 
+//ObjectServiceMess support for grand permission access cross service
+type ObjectServiceMess struct {
+	ID        string
+	ServiceID string
+	ObjectID  string
+}
+
 //ObjectPermission Contains object and it's permission
 type ObjectPermission struct {
-	Object     Object
-	Permission map[string]map[string]bool
+	ObjectId string `json:"object_id"`
+	Token    string `json:"token"`
 }
 
 type Policy struct {
@@ -47,6 +54,7 @@ type CertForSign struct {
 	ExternalID string                     `json:"external_id"`
 	ServiceID  string                     `json:"service_id"`
 	ExpiryDate int64                      `json:"expiry_date"`
+	Scope      []string                   `json:"scope"`
 	Attributes map[string]interface{}     `json:"attributes"`
 	Permission map[string]map[string]bool `json:"permission"`
 }

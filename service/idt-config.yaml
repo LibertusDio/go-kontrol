@@ -1,0 +1,19 @@
+app_name: "service-idt"
+environment: testing
+port: "4448"
+log_level: 1
+token_ttl: 1800
+mysql:
+  database: auth_db
+  host: host.docker.internal
+#  host: localhost
+  password: mysql
+  port: 3306
+  sslmode: disable
+  timeout: 15
+  username: root
+  connection_max: 20
+  connection_time: 300
+  connection_idle_max: 0
+  connection_idle_time: 10
+  log: true
