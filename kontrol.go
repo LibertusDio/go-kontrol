@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 
@@ -58,12 +59,25 @@ func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, extern
 		return nil, errors.New("Token is invalid ")
 	}
 	// verify service follow path
-	service, err := k.store.GetServiceByExternalId(c, externalServiceID)
-	if err != nil && err != CommonError.NOT_FOUND {
+	reqService, err := k.store.GetServiceByExternalId(c, externalServiceID)
+	if err != nil && err != CommonError.SERVICE_NOT_FOUND {
 		return nil, err
 	}
 	//verify token
-	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, service.ID, time.Now().Unix())
+	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, time.Now().Unix())
+	if err != nil {
+		return nil, CommonError.NOT_FOUND
+	}
+	// Verify permission access path by permission verified from JWT
+	if object.ServiceID != reqService.ID {
+		for jwtsid, _ := range customizeClaim.Permission {
+			if jwtsid == reqService.ID {
+				return object, nil
+			}
+		}
+		return nil, CommonError.INVALID_SERVICE
+	}
+
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
@@ -96,7 +110,11 @@ func (k DefaultKontrol) IssueCertForService(ctx context.Context, objID string, s
 		return nil, CommonError.INVALID_SERVICE
 	}
 	// generate cert
-	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	extendSerivceIds, err := k.GetObjectExtendServiceIds(ctx, objID)
+	if err != nil {
+		return nil, CommonError.INVALID_POLICY
+	}
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy, extendSerivceIds)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +150,9 @@ func (k DefaultKontrol) IssueCertForClient(ctx context.Context, externalID strin
 		return nil, CommonError.INVALID_SERVICE
 	}
 	obj.ExpiryDate = time.Now().Unix() + k.Option.DefaultTimeout
+	objectExtendServiceIds, err := k.GetObjectExtendServiceIds(ctx, obj.ID)
 	// generate cert
-	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy, objectExtendServiceIds)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +206,7 @@ func (k DefaultKontrol) AddSimpleObjectWithDefaultPolicy(ctx context.Context, ex
 		ApplyPolicy: nil,
 	}
 
-	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy)
+	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy, []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -232,9 +251,21 @@ func (k DefaultKontrol) UpdateObject(ctx context.Context, obj *Object, serviceke
 
 	return k.store.UpdateObject(ctx, obj)
 }
+func (k DefaultKontrol) GetObjectExtendServiceIds(ctx context.Context, objId string) ([]string, error) {
+
+	objectServiceMess, err := k.store.GetObjectServiceMesh(ctx, objId)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return []string{}, err
+	}
+	rs := make([]string, len(objectServiceMess))
+	for i := 0; i < len(objectServiceMess); i++ {
+		rs[i] = objectServiceMess[i].ServiceID
+	}
+	return rs, nil
+}
 
 //CreateCert create final cert then sign
-func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Policy) (*CertForSign, string, string, error) {
+func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Policy, extendServiceIds []string) (*CertForSign, string, string, error) {
 	tempcert := &CertForSign{
 		ID:         obj.ID,
 		GlobalID:   obj.GlobalID,
@@ -245,6 +276,10 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 	}
 
 	tempperm := make(map[string]map[string]bool)
+	// apply extend serivce
+	for _, v := range extendServiceIds {
+		tempperm[v] = make(map[string]bool)
+	}
 	// apply default policies
 	for _, dp := range policy {
 		ts, exist := tempperm[dp.ServiceID]
@@ -356,4 +391,36 @@ func (k DefaultKontrol) CreatePolicy(ctx context.Context, servicekey string, pol
 	}
 
 	return k.store.CreatePolicy(ctx, policy)
+}
+func (k DefaultKontrol) UpdatePolicy(ctx context.Context, servicekey string, policy *Policy) error {
+	// check service
+	service, err := k.store.GetServiceByID(ctx, policy.ServiceID)
+	if err != nil && err != CommonError.NOT_FOUND {
+		return err
+	}
+	if service == nil || err == CommonError.NOT_FOUND {
+		return CommonError.INVALID_SERVICE
+	}
+
+	// check service key
+	scert := append([]byte(k.Option.SecretKey), []byte(servicekey)...)
+	hash := sha256.Sum256(scert)
+	sign := base64.URLEncoding.EncodeToString(hash[:])
+
+	if strings.Compare(sign, service.Key) != 0 {
+		return CommonError.INVALID_TOKEN
+	}
+
+	// check  policy exist
+	_, err = k.store.GetPolicyByID(ctx, policy.ID)
+	if err != nil {
+		return err
+	}
+
+	if err := k.store.UpdatePolicy(ctx, policy); err != nil {
+		return err
+	}
+	//Expired related object
+	return k.store.ExpiredObjectsByPolicy(ctx, policy.ID)
+
 }

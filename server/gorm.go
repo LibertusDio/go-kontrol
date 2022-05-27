@@ -112,10 +112,10 @@ type policystore struct {
 	ApplyTo    int64
 }
 
-func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, serviceid string, timestamp int64) (*gokontrol.Object, error) {
+func (k *kontrolStorage) GetObjectByToken(c context.Context, token string, timestamp int64) (*gokontrol.Object, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var objectstore objectStore
-	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("token = ? AND service_id = ? AND expiry_date >= ?", token, serviceid, timestamp).First(&objectstore).Error
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("token = ? AND expiry_date >= ?", token, timestamp).First(&objectstore).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
@@ -345,6 +345,69 @@ func (k *kontrolStorage) CreatePolicy(c context.Context, policy *gokontrol.Polic
 	return nil
 }
 
+func (k *kontrolStorage) UpdatePolicy(c context.Context, policy *gokontrol.Policy) error {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	// convert perm
+	perm, err := json.Marshal(policy.Permission)
+	if err != nil {
+		return err
+	}
+
+	// save DB
+	policystore := policystore{
+		ID:         policy.ID,
+		Name:       policy.Name,
+		ServiceID:  policy.ServiceID,
+		Permission: string(perm),
+		Status:     policy.Status,
+		ApplyFrom:  policy.ApplyFrom,
+		ApplyTo:    policy.ApplyTo,
+	}
+	err = tx.WithContext(c).Table(DBTableName.TB_POLICIES).Updates(&policystore).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *kontrolStorage) ExpiredObjectsByPolicy(c context.Context, policyId string) error {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	type ids struct {
+		ID string
+	}
+	var opmObjectIds, spmObjectIds []*ids
+
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Select("object_id as id").Where("policy_id", policyId).Find(&opmObjectIds).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+	err = tx.WithContext(c).Raw("SELECT o.id  FROM service_policy_mesh as spm inner join objects o on spm.service_id = o.service_id where spm.policy_id = ? ", policyId).Scan(&spmObjectIds).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+	if len(opmObjectIds) == 0 && len(spmObjectIds) == 0 {
+		return nil
+	}
+	//combine ids
+	idsMap := make(map[string]string)
+
+	for _, v := range opmObjectIds {
+		idsMap[v.ID] = v.ID
+	}
+	for _, v := range spmObjectIds {
+		idsMap[v.ID] = v.ID
+	}
+	objectIds := make([]string, len(idsMap))
+	index := 0
+	for _, v := range idsMap {
+		objectIds[index] = v
+		index++
+	}
+	//com
+	return tx.WithContext(c).Table(DBTableName.TB_OBJECTS).Where("id in ?", objectIds).Update("expiry_date", 0).Error
+}
+
 func (k *kontrolStorage) GetServiceByID(c context.Context, id string) (*gokontrol.Service, error) {
 	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
 	var servicestore serviceStore
@@ -447,4 +510,12 @@ func (k *kontrolStorage) GetServiceByExternalId(c context.Context, externalServi
 	}
 	service.EnforcePolicy = enforcepolicy
 	return service, nil
+}
+
+//GetObjectServiceMesh Get list object service mesh and error (if have)
+func (k *kontrolStorage) GetObjectServiceMesh(c context.Context, objectId string) ([]*gokontrol.ObjectServiceMess, error) {
+	tx := c.Value(ContextKeyTransaction).(*gorm.DB)
+	var rs []*gokontrol.ObjectServiceMess
+	err := tx.WithContext(c).Table(DBTableName.TB_OBJECT_SERVICE_MESH).Where("object_id = ? ", objectId).Find(&rs).Error
+	return rs, err
 }

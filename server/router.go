@@ -76,6 +76,7 @@ func NewEcho(s *Service) *echo.Echo {
 		api.GET("/validate", ValidateObjectHandler(s))
 		api.POST("/cert", GetCertForClientHandler(s))
 		api.POST("/policy", CreatePolicyHandler(s))
+		api.PUT("/policy", UpdatePolicyHandler(s))
 		api.POST("/authorize", AuthenticateHandler(s))
 	}
 
@@ -278,6 +279,56 @@ func CreatePolicyHandler(s *Service) echo.HandlerFunc {
 	}
 }
 
+func UpdatePolicyHandler(s *Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		type UpdatePolicyRequest struct {
+			Id         string         `json:"id" validate:"required"`
+			Token      string         `json:"token" validate:"required"`
+			Name       string         `json:"name"`
+			ServiceID  string         `json:"service_id"`
+			Permission map[string]int `json:"permission"`
+			Status     string         `json:"status"`
+			ApplyFrom  int64          `json:"apply_from"`
+			ApplyTo    int64          `json:"apply_to"`
+		}
+
+		type UpdatePolicyResponse struct {
+			Code    int               `json:"code"`
+			Message string            `json:"message"`
+			Policy  *gokontrol.Policy `json:"policy"`
+		}
+
+		pr := new(UpdatePolicyRequest)
+		c.Bind(pr)
+
+		if err := c.Validate(pr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		for _, v := range pr.Permission {
+			if v < 0 || v > 2 {
+				return c.JSON(http.StatusBadRequest, CommonError.INVALID_PARAM)
+			}
+		}
+		policy := &gokontrol.Policy{
+			ID:         pr.Id,
+			Name:       pr.Name,
+			ServiceID:  pr.ServiceID,
+			Permission: pr.Permission,
+			Status:     pr.Status,
+			ApplyFrom:  pr.ApplyFrom,
+			ApplyTo:    pr.ApplyTo,
+		}
+		err := s.Kontrol.UpdatePolicy(c.Request().Context(), pr.Token, policy)
+		if err != nil {
+			log.Logger().Error(err)
+			return c.JSON(http.StatusInternalServerError, err)
+		}
+
+		return c.JSON(http.StatusOK, UpdatePolicyResponse{Code: http.StatusOK, Message: "ok", Policy: policy})
+	}
+}
+
 //ValidateObjectHandler quick check if token is valid
 func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -289,7 +340,7 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 
 		// verify Access-Token header exist
 		if _, ok := c.Request().Header["Authorization"]; !ok {
-			return c.JSON(http.StatusBadRequest, errors.New("Header 'Access-Token' is empty "))
+			return c.JSON(http.StatusUnauthorized, errors.New("Header 'Authorization' is empty "))
 		}
 		reqToken := c.Request().Header["Authorization"][0]
 		reqToken = strings.Trim(strings.Replace(reqToken, "Bearer", "", 1), " ")
