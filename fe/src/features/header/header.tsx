@@ -2,9 +2,9 @@ import React, {useEffect, useState} from 'react';
 import {useNavigate} from "react-router-dom";
 import {useDispatch, useSelector} from "react-redux";
 import {clearState, userSelector} from "../login/login-slice";
+
 export function Header() {
     const {isLoggedIn} = useSelector(userSelector)
-    console.log(isLoggedIn)
     return (
         <nav className="navbar" role="navigation" aria-label="main navigation">
             <div className="navbar-brand">
@@ -17,18 +17,25 @@ export function Header() {
                 </div>
 
                 <div className="navbar-end">
-                    <div className="navbar-item">
-                        <div className="buttons">
-                            <a className="button is-primary">
-                                <strong>Sign up</strong>
-                            </a>
-                            <a className="button is-light">
-                                Log in
-                            </a>
-                        </div>
-                    </div>
+                    {isLoggedIn ? <Logout/> : null}
                 </div>
             </div>
         </nav>
+    )
+}
+
+const Logout = () => {
+    const dispatch = useDispatch()
+    const logout = () => {
+        dispatch(clearState())
+    }
+    return (
+        <div className="navbar-item">
+            <div className="buttons">
+                <a className="button is-primary" onClick={() => logout()}>
+                    <strong>Logout</strong>
+                </a>
+            </div>
+        </div>
     )
 }
