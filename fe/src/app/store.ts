@@ -1,14 +1,19 @@
 import {configureStore, ThunkAction, Action} from '@reduxjs/toolkit';
-import counterReducer from '../features/counter/counterSlice';
-import authReducer from '../features/login/login-slice'
-import serviceReducer from "../features/home/serviceSlice";
+import {errorHandlerMiddleware} from '../middlewares/errorMiddleware';
+import errorReducer from '../_actions/errorSlices';
+import loginSlice from "../features/login/loginSlices"
+import serviceSlices from "../features/service/serviceSlices";
 
 export const store = configureStore({
     reducer: {
-        counter: counterReducer,
-        auth: authReducer,
-        serviceInfo: serviceReducer
+        error: errorReducer,
+        auth: loginSlice,
+        service: serviceSlices
     },
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat([
+            errorHandlerMiddleware
+        ]),
 });
 
 export type AppDispatch = typeof store.dispatch;
