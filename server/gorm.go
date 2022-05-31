@@ -230,7 +230,7 @@ func (k *kontrolStorage) GetObjectByID(c context.Context, id string) (*gokontrol
 
 	var mesh []*objectpolicymesh
 	err = tx.WithContext(c).Table(DBTableName.TB_OBJECT_POLICY_MESH).Where("object_id = ? ", id).Scan(&mesh).Error
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 	defaultpolicy := make([]*gokontrol.Policy, 0)

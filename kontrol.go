@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt"
 	"gorm.io/gorm"
 	"regexp"
@@ -80,12 +81,8 @@ func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, reqPat
 		for jwtsid, servicePermissions := range customizeClaim.Permission {
 			if jwtsid == reqService.ID {
 				for permissionStr, enable := range servicePermissions {
-					verifies := strings.Split(permissionStr, "@") // split permission verify to 2 paths: 0 -- verify request && 1 -- verify URI regexp paten
-					if len(verifies) <= 2 {
-						continue // this is invalid permission. It must have struct like '{Request Method}@{Path regexp}
-					}
-					match, _ := regexp.MatchString(verifies[1], splitPaths[1])
-					if match && verifies[0] == reqMethod && enable {
+					match, _ := regexp.MatchString(permissionStr, fmt.Sprintf("%s@/%s", reqMethod, splitPaths[2]))
+					if match && enable {
 						return object, nil
 					}
 				}
