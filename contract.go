@@ -3,8 +3,8 @@ package gokontrol
 import "context"
 
 type Kontrol interface {
-	ValidateToken(c context.Context, token string, externalServiceID string) (*Object, error)                                                // validate if token existed, for tighter check, use IssueCertForService
-	IssueCertForService(ctx context.Context, objID string, serID string) (*ObjectPermission, error)                                          // get client cert for service to store
+	ValidateToken(c context.Context, token string, reqPath string, reqMethod string) (*Object, error)                                        // validate if token existed, for tighter check, use IssueCertForService
+	IssueCertForService(ctx context.Context, objID string, externalid string) (*ObjectPermission, error)                                     // get client cert for service to store
 	AddSimpleObjectWithDefaultPolicy(ctx context.Context, externalid string, serviceid string, servicekey string) (*ObjectPermission, error) //service create new object
 	UpdateObject(ctx context.Context, obj *Object, servicekey string) error                                                                  //service update object
 	CreateCert(obj *Object, policy []*Policy, enforce []*Policy, objectExtendServiceIds []string) (*CertForSign, string, string, error)      // internal use, centralise function to issue permission

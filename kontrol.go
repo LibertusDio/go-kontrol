@@ -8,6 +8,7 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt"
 	"gorm.io/gorm"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ type Claims struct {
 }
 
 //ValidateToken validate the given token
-func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, externalServiceID string) (*Object, error) {
+func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, reqPath string, reqMethod string) (*Object, error) {
 	customizeClaim := &Claims{}
 	tkn, err := jwt.ParseWithClaims(jwtToken, customizeClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(k.Option.SecretKey), nil
@@ -58,31 +59,40 @@ func (k DefaultKontrol) ValidateToken(c context.Context, jwtToken string, extern
 	if !tkn.Valid {
 		return nil, errors.New("Token is invalid ")
 	}
+
 	// verify service follow path
-	reqService, err := k.store.GetServiceByExternalId(c, externalServiceID)
+	splitPaths := strings.SplitN(reqPath, "/", 3)
+	reqService, err := k.store.GetServiceByExternalId(c, splitPaths[1])
 	if err != nil && err != CommonError.SERVICE_NOT_FOUND {
 		return nil, err
 	}
+
 	//verify token
 	object, err := k.store.GetObjectByToken(c, customizeClaim.Token, time.Now().Unix())
-	if err != nil {
-		return nil, CommonError.NOT_FOUND
-	}
-	// Verify permission access path by permission verified from JWT
-	if object.ServiceID != reqService.ID {
-		for jwtsid, _ := range customizeClaim.Permission {
-			if jwtsid == reqService.ID {
-				return object, nil
-			}
-		}
-		return nil, CommonError.INVALID_SERVICE
-	}
-
 	if err != nil && err != CommonError.NOT_FOUND {
 		return nil, err
 	}
 	if err == CommonError.NOT_FOUND {
 		return nil, CommonError.INVALID_TOKEN
+	}
+	// Verify permission access path by permission verified from JWT
+	if object.ServiceID != reqService.ID {
+		for jwtsid, servicePermissions := range customizeClaim.Permission {
+			if jwtsid == reqService.ID {
+				for permissionStr, enable := range servicePermissions {
+					verifies := strings.Split(permissionStr, "@") // split permission verify to 2 paths: 0 -- verify request && 1 -- verify URI regexp paten
+					if len(verifies) <= 2 {
+						continue // this is invalid permission. It must have struct like '{Request Method}@{Path regexp}
+					}
+					match, _ := regexp.MatchString(verifies[1], splitPaths[1])
+					if match && verifies[0] == reqMethod && enable {
+						return object, nil
+					}
+				}
+
+			}
+		}
+		return nil, CommonError.INVALID_SERVICE
 	}
 
 	return object, nil
@@ -149,8 +159,26 @@ func (k DefaultKontrol) IssueCertForClient(ctx context.Context, externalID strin
 	if service == nil || err == CommonError.NOT_FOUND {
 		return nil, CommonError.INVALID_SERVICE
 	}
+
 	obj.ExpiryDate = time.Now().Unix() + k.Option.DefaultTimeout
 	objectExtendServiceIds, err := k.GetObjectExtendServiceIds(ctx, obj.ID)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	for _, extendServiceId := range objectExtendServiceIds {
+		extendService, err := k.store.GetServiceByID(ctx, extendServiceId)
+		if err != nil { // wont accept case delete but missing cascade. We should disable service that hard delete it
+			return nil, err
+		}
+		if extendService.Status == ServiceStatus.ENABLE && extendService.ExpiryDate >= time.Now().Unix() {
+			for _, extPolicy := range extendService.DefaultPolicy {
+				service.DefaultPolicy = append(service.DefaultPolicy, extPolicy)
+			}
+			for _, extEnforcePolicy := range extendService.EnforcePolicy {
+				service.EnforcePolicy = append(service.EnforcePolicy, extEnforcePolicy)
+			}
+		}
+	}
 	// generate cert
 	_, sign, jwtToken, err := k.CreateCert(obj, service.DefaultPolicy, service.EnforcePolicy, objectExtendServiceIds)
 	if err != nil {
@@ -319,7 +347,7 @@ func (k DefaultKontrol) CreateCert(obj *Object, policy []*Policy, enforce []*Pol
 	}
 
 	// apply enforce policy
-	for _, cp := range obj.ApplyPolicy {
+	for _, cp := range enforce {
 		ts, exist := tempperm[cp.ServiceID]
 		if !exist {
 			ts = make(map[string]bool)

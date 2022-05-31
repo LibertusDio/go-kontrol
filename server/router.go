@@ -349,10 +349,8 @@ func ValidateObjectHandler(s *Service) echo.HandlerFunc {
 		}
 		reqToken := c.Request().Header["Authorization"][0]
 		reqToken = strings.Trim(strings.Replace(reqToken, "Bearer", "", 1), " ")
-		forwardedPath := c.Request().Header["X-Forwarded-Uri"][0]
-		forwardedPaths := strings.Split(forwardedPath, "/")
 
-		_, err := s.Kontrol.ValidateToken(c.Request().Context(), reqToken, forwardedPaths[1])
+		_, err := s.Kontrol.ValidateToken(c.Request().Context(), reqToken, c.Request().Header["X-Forwarded-Uri"][0], c.Request().Method)
 		if err != nil {
 			log.Logger().Debug(err)
 			return c.JSON(http.StatusForbidden, CommonError.FORBIDDEN)
