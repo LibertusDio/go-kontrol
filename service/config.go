@@ -114,7 +114,7 @@ log_level: 1
 token_ttl: 1800
 mysql:
   database: auth_db
-  host: host.docker.internal
+  host: db
   password: mysql
   port: 3306
   sslmode: disable

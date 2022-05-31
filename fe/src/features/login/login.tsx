@@ -1,24 +1,31 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from "react";
+import {useLocation, useNavigate} from "react-router-dom";
 import {useForm, SubmitHandler} from 'react-hook-form';
-import {useSelector, useDispatch} from 'react-redux';
-import {AuthModel, AuthRequest, AuthRequestInterface} from "./AuthModel";
-import {clearState, login, userSelector} from "./login-slice";
-import {useNavigate} from "react-router-dom";
+import {useAppDispatch} from "../../app/hooks";
+import {AuthRequest} from "./authModel";
+import {login} from "./api";
+import {useSelector} from "react-redux";
+import {userSelector} from "./loginSlices";
 
-export function Login() {
-    const navigate = useNavigate()
-    const dispatch = useDispatch();
+
+const Login: React.FC = (props: any) => {
+    const dispatch = useAppDispatch();
+    const {handleSubmit, register} = useForm<AuthRequest>();
+    let location = useLocation()
+    let navigate = useNavigate()
+    // @ts-ignore
+    const { from } = location.state || { from: { pathname: "/" } };
     const {isLoggedIn} = useSelector(userSelector)
-    const {register, handleSubmit, watch, formState: {errors}} = useForm<AuthRequest>();
     const onSubmit: SubmitHandler<AuthRequest> = (data: AuthRequest) => {
         // @ts-ignore
         dispatch(login(data))
     };
     useEffect(() => {
-        if (isLoggedIn === true) {
-            navigate("/")
+        if (isLoggedIn) {
+            navigate(from as string)
         }
-    }, [isLoggedIn])
+    },[isLoggedIn])
+
     return (
         <section className="section">
             <form onSubmit={handleSubmit(onSubmit)}>
@@ -52,4 +59,9 @@ export function Login() {
             </form>
         </section>
     )
+}
+
+export
+{
+    Login
 }

@@ -1,9 +1,11 @@
-import React, {useEffect, useState} from 'react';
-import {useNavigate} from "react-router-dom";
+import { Layout } from "antd";
 import {useDispatch, useSelector} from "react-redux";
-import {clearState, userSelector} from "../login/login-slice";
+import {clearState, userSelector} from "../../features/login/loginSlices";
 
-export function Header() {
+const { Header } = Layout;
+
+export const HomesteadHeader = () => {
+    // @ts-ignore
     const {isLoggedIn} = useSelector(userSelector)
     return (
         <nav className="navbar" role="navigation" aria-label="main navigation">
@@ -22,7 +24,7 @@ export function Header() {
             </div>
         </nav>
     )
-}
+};
 
 const Logout = () => {
     const dispatch = useDispatch()
