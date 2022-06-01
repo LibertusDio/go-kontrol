@@ -9,13 +9,13 @@ ENV PATH /app/node_modules/.bin:$PATH
 ARG DOMAIN_API_GATEWAY
 ENV DOMAIN_API_GATEWAY = $DOMAIN_API_GATEWAY
 # install app dependencies
-COPY fe/package.json ./
-COPY fe/package-lock.json ./
+COPY client/fe/package.json ./
+COPY client/fe/package-lock.json ./
 RUN npm install --silent
 #RUN npm install react-scripts@3.4.1 -g --silent
 
 # add app
-COPY fe ./
+COPY client/fe ./
 
 # start app
 CMD ["npm", "start"]
