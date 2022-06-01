@@ -90,28 +90,18 @@ http:
         addVaryHeader: true
   services:
     route-to-authorize-api:
-      networks:
-        - backend
       loadBalancer:
         servers:
           - url: "http://sso_service:4445"
     route-to-api-service-idt:
-      networks:
-        - backend
       loadBalancer:
         servers:
           - url: "http://idt_service:4448"
     route-to-api-service-adt:
-      networks:
-        - backend
       loadBalancer:
         servers:
           - url: "http://adt_service:4446"
     route-to-api-service-hrd:
-      networks:
-        - backend
       loadBalancer:
         servers:
           - url: "http://hrd_service:4447"
-  cors:
-    allow-credentials: true

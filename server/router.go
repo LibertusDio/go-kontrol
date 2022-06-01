@@ -165,9 +165,8 @@ func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
 		}
 
 		type CreateSimpleObjectResponse struct {
-			Code    int                        `json:"code"`
-			Message string                     `json:"message"`
-			Data    gokontrol.ObjectPermission `json:"object_permission"`
+			Code    int    `json:"code"`
+			Message string `json:"message"`
 		}
 
 		pr := new(CreateSimpleObjectRequest)
@@ -176,13 +175,13 @@ func CreateSimpleObjectHandler(s *Service) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, err)
 		}
 
-		objcert, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID, pr.Token)
+		_, err := s.Kontrol.AddSimpleObjectWithDefaultPolicy(c.Request().Context(), pr.ObjectID, pr.ServiceID, pr.Token)
 		if err != nil {
 			log.Logger().Error(err)
 			return c.JSON(http.StatusUnprocessableEntity, err)
 		}
 
-		return c.JSON(http.StatusOK, CreateSimpleObjectResponse{Code: http.StatusOK, Message: "true", Data: *objcert})
+		return c.JSON(http.StatusOK, CreateSimpleObjectResponse{Code: http.StatusOK, Message: "true"})
 	}
 }
 
